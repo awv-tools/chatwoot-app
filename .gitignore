@@ -79,6 +79,7 @@ yalc.lock
 /public/packs
 /public/packs-test
 /node_modules
+/.pnpm-store
 /yarn-error.log
 yarn-debug.log*
 .yarn-integrity

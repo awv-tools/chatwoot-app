@@ -3,7 +3,7 @@ FROM node:23-alpine as node
 FROM ruby:3.4.4-alpine3.21 AS pre-builder
 
 ARG NODE_VERSION="23.7.0"
-ARG PNPM_VERSION="10.2.0"
+ARG PNPM_VERSION="10.15.0"
 ENV NODE_VERSION=${NODE_VERSION}
 ENV PNPM_VERSION=${PNPM_VERSION}
 
@@ -35,7 +35,7 @@ RUN apk update && apk add --no-cache \
   curl \
   xz \
   && mkdir -p /var/app \
-  && gem install bundler
+  && gem install bundler -v '2.5.11'
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules

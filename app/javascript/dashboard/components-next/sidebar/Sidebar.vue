@@ -212,7 +212,7 @@ const menuItems = computed(() => {
         },
       ],
     },
-    {
+    /* {
       name: 'Captain',
       icon: 'i-woot-captain',
       label: t('SIDEBAR.CAPTAIN'),
@@ -233,7 +233,7 @@ const menuItems = computed(() => {
           to: accountScopedRoute('captain_responses_index'),
         },
       ],
-    },
+    }, */
     {
       name: 'Contacts',
       label: t('SIDEBAR.CONTACTS'),
@@ -352,7 +352,7 @@ const menuItems = computed(() => {
         },
       ],
     },
-    {
+    /* {
       name: 'Portals',
       label: t('SIDEBAR.HELP_CENTER.TITLE'),
       icon: 'i-lucide-library-big',
@@ -398,7 +398,7 @@ const menuItems = computed(() => {
           }),
         },
       ],
-    },
+    }, */
     {
       name: 'Settings',
       label: t('SIDEBAR.SETTINGS'),
@@ -470,30 +470,30 @@ const menuItems = computed(() => {
           icon: 'i-lucide-blocks',
           to: accountScopedRoute('settings_applications'),
         },
-        {
+        /* {
           name: 'Settings Audit Logs',
           label: t('SIDEBAR.AUDIT_LOGS'),
           icon: 'i-lucide-briefcase',
           to: accountScopedRoute('auditlogs_list'),
-        },
-        {
+        }, */
+        /* {
           name: 'Settings Custom Roles',
           label: t('SIDEBAR.CUSTOM_ROLES'),
           icon: 'i-lucide-shield-plus',
           to: accountScopedRoute('custom_roles_list'),
-        },
-        {
+        }, */
+        /* {
           name: 'Settings Sla',
           label: t('SIDEBAR.SLA'),
           icon: 'i-lucide-clock-alert',
           to: accountScopedRoute('sla_list'),
-        },
-        {
+        }, */
+        /* {
           name: 'Settings Billing',
           label: t('SIDEBAR.BILLING'),
           icon: 'i-lucide-credit-card',
           to: accountScopedRoute('billing_settings_index'),
-        },
+        }, */
       ],
     },
   ];

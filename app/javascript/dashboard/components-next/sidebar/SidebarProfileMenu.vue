@@ -77,6 +77,7 @@ const menuItems = computed(() => {
         ninja.open({ parent: 'appearance_settings' });
       },
     },
+    /* 
     {
       show: true,
       showOnCustomBrandedInstance: false,
@@ -103,7 +104,8 @@ const menuItems = computed(() => {
       link: '/super_admin',
       nativeLink: true,
       target: '_blank',
-    },
+    }, 
+    */
     {
       show: true,
       showOnCustomBrandedInstance: true,

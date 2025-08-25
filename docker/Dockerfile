@@ -35,7 +35,7 @@ RUN apk update && apk add --no-cache \
   curl \
   xz \
   && mkdir -p /var/app \
-  && gem install bundler -v '2.5.11'
+  && gem install bundler
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules

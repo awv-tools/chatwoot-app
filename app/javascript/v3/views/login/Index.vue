@@ -144,15 +144,13 @@ export default {
           this.handleImpersonation();
           this.showAlertMessage(this.$t('LOGIN.API.SUCCESS_MESSAGE'));
         })
-        .catch(response => {
+        .catch(error => {
           // Reset URL Params if the authentication is invalid
           if (this.email) {
             window.location = '/app/login';
           }
           this.loginApi.hasErrored = true;
-          this.showAlertMessage(
-            response?.message || this.$t('LOGIN.API.UNAUTH')
-          );
+          this.showAlertMessage(error?.message || this.$t('LOGIN.API.UNAUTH'));
         });
     },
     submitFormLogin() {
@@ -172,24 +170,17 @@ export default {
     class="flex flex-col w-full min-h-screen py-20 bg-n-brand/5 dark:bg-n-background sm:px-6 lg:px-8"
   >
     <section class="max-w-5xl mx-auto">
-      <!--    <img
+      <img
         :src="globalConfig.logo"
         :alt="globalConfig.installationName"
-        class="block w-auto h-8 mx-auto dark:hidden"
+        class="block w-auto h-16 mx-auto dark:hidden"
       />
       <img
         v-if="globalConfig.logoDark"
         :src="globalConfig.logoDark"
         :alt="globalConfig.installationName"
         class="hidden w-auto h-8 mx-auto dark:block"
-      /> -->
-      <img
-        src="https://awv.nyc3.digitaloceanspaces.com/cumpra/assets/cumpra_logo_v2.png"
-        class="block w-auto h-20 mx-auto"
       />
-      <h2 class="mt-6 text-3xl font-medium text-center text-n-slate-12">
-        {{ replaceInstallationName($t('LOGIN.TITLE')) }}
-      </h2>
       <p v-if="showSignupLink" class="mt-3 text-sm text-center text-n-slate-11">
         {{ $t('COMMON.OR') }}
         <router-link to="auth/signup" class="lowercase text-link text-n-brand">

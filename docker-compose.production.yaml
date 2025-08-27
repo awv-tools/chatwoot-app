@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    image: wavrik/chatwoot_custom:latest
+    image: cumpraai/chatwoot_custom:latest
     env_file: .env
     volumes:
       - storage_data:/app/storage

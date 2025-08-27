@@ -4,7 +4,7 @@ services:
   base: &base
     build:
       context: .
-      dockerfile: ./docker/dockerfiles/rails.Dockerfile
+      dockerfile: ./docker/Dockerfile
     image: chatwoot/chatwoot:local_build
     env_file: .env
     volumes:
@@ -12,6 +12,9 @@ services:
 
   rails:
     <<: *base
+    build:
+      context: .
+      dockerfile: ./docker/dockerfiles/rails.Dockerfile
     depends_on:
       - postgres
       - redis

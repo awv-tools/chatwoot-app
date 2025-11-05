@@ -116,6 +116,7 @@ const chatLists = useMapGetter('getFilteredConversations');
 const mineChatsList = useMapGetter('getMineChats');
 const allChatList = useMapGetter('getAllStatusChats');
 const unAssignedChatsList = useMapGetter('getUnAssignedChats');
+const unreadChatsList = useMapGetter('getUnreadChats');
 const chatListLoading = useMapGetter('getChatListLoadingStatus');
 const activeInbox = useMapGetter('getSelectedInbox');
 const conversationStats = useMapGetter('conversationStats/getStats');
@@ -197,6 +198,17 @@ const userPermissions = computed(() => {
   return getUserPermissions(currentUser.value, currentAccountId.value);
 });
 
+const getTabCount = (key, countKey) => {
+  if (key === 'unread') {
+    const filters = {
+      inboxId: props.conversationInbox,
+      status: activeStatus.value,
+    };
+    return unreadChatsList.value(filters).length;
+  }
+  return conversationStats.value[countKey] || 0;
+};
+
 const assigneeTabItems = computed(() => {
   return filterItemsByPermission(
     ASSIGNEE_TYPE_TAB_PERMISSIONS,
@@ -205,7 +217,7 @@ const assigneeTabItems = computed(() => {
   ).map(({ key, count: countKey }) => ({
     key,
     name: t(`CHAT_LIST.ASSIGNEE_TYPE_TABS.${key}`),
-    count: conversationStats.value[countKey] || 0,
+    count: getTabCount(key, countKey),
   }));
 });
 
@@ -265,7 +277,7 @@ const conversationListPagination = computed(() => {
     return 1;
   }
 
-  return currentPage.value + 1;
+  return (currentPage.value || 0) + 1;
 });
 
 const conversationFilters = computed(() => {
@@ -325,6 +337,8 @@ const conversationList = computed(() => {
       localConversationList = [...mineChatsList.value(filters)];
     } else if (activeAssigneeTab.value === 'unassigned') {
       localConversationList = [...unAssignedChatsList.value(filters)];
+    } else if (activeAssigneeTab.value === 'unread') {
+      localConversationList = [...unreadChatsList.value(filters)];
     } else {
       localConversationList = [...allChatList.value(filters)];
     }

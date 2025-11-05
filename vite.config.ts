@@ -44,6 +44,30 @@ if (isLibraryMode) {
 
 export default defineConfig({
   plugins: plugins,
+  server: {
+    host: process.env.VITE_RUBY_HOST || '0.0.0.0',
+    port: Number(process.env.VITE_RUBY_PORT || 3036),
+    strictPort: true,
+    allowedHosts: ['vite', 'localhost', '127.0.0.1'],
+    hmr: {
+      host: process.env.VITE_RUBY_HMR_HOST || 'localhost',
+      port: Number(process.env.VITE_RUBY_PORT || 3036),
+      protocol: 'ws',
+    },
+    watch: {
+      usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
+      // ADICIONE ESTAS LINHAS:
+      ignored: [
+        '**/node_modules/**',
+        '**/public/packs/**',
+        '**/.git/**',
+        '**/tmp/**',
+        '**/log/**',
+        '**/coverage/**',
+        '**/vendor/**'
+      ],
+    },
+  },
   build: {
     rollupOptions: {
       output: {

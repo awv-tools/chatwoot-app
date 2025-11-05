@@ -16,6 +16,7 @@
     "FILTER_ALL": "All",
     "ASSIGNEE_TYPE_TABS": {
       "me": "Mine",
+      "unread": "Unread",
       "unassigned": "Unassigned",
       "all": "All"
     },

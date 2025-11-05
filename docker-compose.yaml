@@ -37,7 +37,12 @@ services:
       - 3000:3000
     env_file: .env
     environment:
-      - VITE_DEV_SERVER_HOST=vite
+      - VITE_RUBY_HOST=vite
+      - VITE_RUBY_PORT=3036
+      - VITE_RUBY_AUTO_BUILD=false
+      - VITE_RUBY_DEV_SERVER_URL=http://vite:3036
+      - VITE_RUBY_DEV_HOST=localhost
+      - VITE_RUBY_HMR_HOST=localhost
       - NODE_ENV=development
       - RAILS_ENV=development
     entrypoint: docker/entrypoints/rails.sh
@@ -59,6 +64,7 @@ services:
     environment:
       - NODE_ENV=development
       - RAILS_ENV=development
+    entrypoint: docker/entrypoints/rails.sh
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
 
   vite:
@@ -76,7 +82,10 @@ services:
     ports:
       - "3036:3036"
     environment:
-      - VITE_DEV_SERVER_HOST=0.0.0.0
+      - VITE_RUBY_HOST=0.0.0.0
+      - VITE_RUBY_PORT=3036
+      - VITE_RUBY_HMR_HOST=localhost
+      - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
       - RAILS_ENV=development
     entrypoint: docker/entrypoints/vite.sh

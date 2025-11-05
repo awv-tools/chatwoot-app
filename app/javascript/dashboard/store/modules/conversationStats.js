@@ -6,10 +6,25 @@ const state = {
   mineCount: 0,
   unAssignedCount: 0,
   allCount: 0,
+  unreadCount: 0,
 };
 
 export const getters = {
-  getStats: $state => $state,
+  getStats: ($state, _, __, rootGetters) => {
+    const allConversations =
+      rootGetters['conversations/getAllConversations'] || [];
+    const unreadCount = allConversations.filter(
+      conversation => conversation?.unread_count > 0
+    ).length;
+
+    return {
+      mineCount: $state.mineCount,
+      unAssignedCount: $state.unAssignedCount,
+      allCount: $state.allCount,
+      unreadCount: unreadCount,
+      updatedOn: $state.updatedOn,
+    };
+  },
 };
 
 // Create a debounced version of the actual API call function

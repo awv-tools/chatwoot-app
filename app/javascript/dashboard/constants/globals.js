@@ -1,10 +1,10 @@
 export default {
   GRAVATAR_URL: 'https://www.gravatar.com/avatar/',
   ASSIGNEE_TYPE: {
-    ME: 'me',
-    UNASSIGNED: 'unassigned',
     ALL: 'all',
     UNREAD: 'unread',
+    ME: 'me',
+    UNASSIGNED: 'unassigned',
   },
   STATUS_TYPE: {
     OPEN: 'open',

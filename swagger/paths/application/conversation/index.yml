@@ -22,7 +22,7 @@ get:
       schema:
         type: string
         enum: ['all', 'open', 'resolved', 'pending', 'snoozed']
-        default: 'open'
+        default: 'all'
       description: Filter by conversation status.
     - name: q
       in: query

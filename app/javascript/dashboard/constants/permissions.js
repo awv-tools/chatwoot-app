@@ -29,6 +29,7 @@ export const REPORTS_PERMISSIONS = 'report_manage';
 
 export const PORTAL_PERMISSIONS = 'knowledge_base_manage';
 
+// All permissions are required for the all tab
 export const ASSIGNEE_TYPE_TAB_PERMISSIONS = {
   all: {
     count: 'allCount',

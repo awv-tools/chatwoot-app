@@ -32,6 +32,7 @@ import ConversationBulkActions from './widgets/conversation/conversationBulkActi
 import IntersectionObserver from './IntersectionObserver.vue';
 import TeleportWithDirection from 'dashboard/components-next/TeleportWithDirection.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import UnreadFilterToggle from './widgets/conversation/UnreadFilterToggle.vue';
 
 import { useUISettings } from 'dashboard/composables/useUISettings';
 import { useAlert } from 'dashboard/composables';
@@ -96,6 +97,7 @@ const activeAssigneeTab = ref(wootConstants.ASSIGNEE_TYPE.ALL);
 const activeStatus = ref(wootConstants.STATUS_TYPE.ALL);
 const activeSortBy = ref(wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC);
 const showAdvancedFilters = ref(false);
+const showOnlyUnread = ref(false);
 // chatsOnView is to store the chats that are currently visible on the screen,
 // which mirrors the conversationList.
 const chatsOnView = ref([]);
@@ -116,7 +118,6 @@ const chatLists = useMapGetter('getFilteredConversations');
 const mineChatsList = useMapGetter('getMineChats');
 const allChatList = useMapGetter('getAllStatusChats');
 const unAssignedChatsList = useMapGetter('getUnAssignedChats');
-const unreadChatsList = useMapGetter('getUnreadChats');
 const chatListLoading = useMapGetter('getChatListLoadingStatus');
 const activeInbox = useMapGetter('getSelectedInbox');
 const conversationStats = useMapGetter('conversationStats/getStats');
@@ -198,17 +199,6 @@ const userPermissions = computed(() => {
   return getUserPermissions(currentUser.value, currentAccountId.value);
 });
 
-const getTabCount = (key, countKey) => {
-  if (key === 'unread') {
-    const filters = {
-      inboxId: props.conversationInbox,
-      status: activeStatus.value,
-    };
-    return unreadChatsList.value(filters).length;
-  }
-  return conversationStats.value[countKey] || 0;
-};
-
 const assigneeTabItems = computed(() => {
   return filterItemsByPermission(
     ASSIGNEE_TYPE_TAB_PERMISSIONS,
@@ -217,7 +207,7 @@ const assigneeTabItems = computed(() => {
   ).map(({ key, count: countKey }) => ({
     key,
     name: t(`CHAT_LIST.ASSIGNEE_TYPE_TABS.${key}`),
-    count: getTabCount(key, countKey),
+    count: conversationStats.value[countKey] || 0,
   }));
 });
 
@@ -337,8 +327,6 @@ const conversationList = computed(() => {
       localConversationList = [...mineChatsList.value(filters)];
     } else if (activeAssigneeTab.value === 'unassigned') {
       localConversationList = [...unAssignedChatsList.value(filters)];
-    } else if (activeAssigneeTab.value === 'unread') {
-      localConversationList = [...unreadChatsList.value(filters)];
     } else {
       localConversationList = [...allChatList.value(filters)];
     }
@@ -353,7 +341,25 @@ const conversationList = computed(() => {
     });
   }
 
-  return localConversationList;
+  // Filter by unread if toggle is active
+  if (showOnlyUnread.value) {
+    localConversationList = localConversationList.filter(
+      conversation => conversation.unread_count > 0
+    );
+  }
+
+  // Sort: unread conversations first, then by existing sort order
+  // The lists from getters are already sorted, so we just need to prioritize unread
+  return localConversationList.sort((a, b) => {
+    const aHasUnread = a.unread_count > 0;
+    const bHasUnread = b.unread_count > 0;
+
+    // If both have same unread status, maintain original order (already sorted by getters)
+    if (aHasUnread === bHasUnread) return 0;
+
+    // Prioritize unread conversations
+    return aHasUnread ? -1 : 1;
+  });
 });
 
 const showEndOfListMessage = computed(() => {
@@ -876,7 +882,11 @@ watch(conversationFilters, (newVal, oldVal) => {
       @filters-modal="onToggleAdvanceFiltersModal"
       @reset-filters="resetAndFetchData"
       @basic-filter-change="onBasicFilterChange"
-    />
+    >
+      <template #unread-filter>
+        <UnreadFilterToggle v-model="showOnlyUnread" />
+      </template>
+    </ChatListHeader>
 
     <TeleportWithDirection
       v-if="showAddFoldersModal"
@@ -929,7 +939,7 @@ watch(conversationFilters, (newVal, oldVal) => {
     />
     <div
       ref="conversationListRef"
-      class="flex-1 overflow-hidden conversations-list hover:overflow-y-auto"
+      class="relative flex-1 overflow-hidden conversations-list hover:overflow-y-auto"
       :class="{ 'overflow-hidden': isContextMenuOpen }"
     >
       <DynamicScroller

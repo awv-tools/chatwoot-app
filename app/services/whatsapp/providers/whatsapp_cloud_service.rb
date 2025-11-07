@@ -187,4 +187,52 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
 
     process_response(response, message)
   end
+
+  def mark_message_read(message_id)
+    return if message_id.blank?
+
+    phone_number_id = whatsapp_channel.provider_config['phone_number_id']
+    return if phone_number_id.blank?
+
+    api_version = GlobalConfigService.load('WHATSAPP_API_VERSION', 'v22.0')
+    url = "#{api_base_path}/#{api_version}/#{phone_number_id}/messages"
+
+    response = HTTParty.post(
+      url,
+      headers: request_headers,
+      body: {
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: message_id
+      }.to_json
+    )
+
+    handle_mark_read_response(response)
+  rescue StandardError => e
+    Rails.logger.error "[WHATSAPP MARK READ] Error: #{e.message}"
+    # Fail silently to not break conversation flow
+  end
+
+  private
+
+  def request_headers
+    {
+      'Authorization' => "Bearer #{whatsapp_channel.provider_config['api_key']}",
+      'Content-Type' => 'application/json'
+    }
+  end
+
+  def api_headers
+    request_headers
+  end
+
+  def handle_mark_read_response(response)
+    unless response.success?
+      Rails.logger.error "[WHATSAPP MARK READ] API request failed: #{response.code} - #{response.body}"
+      return
+    end
+
+    Rails.logger.info "[WHATSAPP MARK READ] ✅ Success! Status: #{response.code} - Message marked as read successfully on WhatsApp Cloud API"
+    response.parsed_response
+  end
 end

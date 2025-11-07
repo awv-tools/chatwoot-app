@@ -16,7 +16,6 @@
     "FILTER_ALL": "Todos",
     "ASSIGNEE_TYPE_TABS": {
       "me": "Minhas",
-      "unread": "Não lidas",
       "unassigned": "Não atribuídas",
       "all": "Todos"
     },
@@ -135,6 +134,8 @@
     "HIDE_QUOTED_TEXT": "Ocultar Texto Citado",
     "SHOW_QUOTED_TEXT": "Mostrar Texto Citado",
     "MESSAGE_READ": "Lida",
-    "SENDING": "Enviando"
+    "SENDING": "Enviando",
+    "SHOW_UNREAD_ONLY": "Mostrar apenas conversas não lidas",
+    "SHOW_ALL_CONVERSATIONS": "Mostrar todas as conversas"
   }
 }

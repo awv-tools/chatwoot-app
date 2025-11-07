@@ -102,13 +102,6 @@ const getters = {
       return isUnAssigned && shouldFilter;
     });
   },
-  getUnreadChats: _state => activeFilters => {
-    return _state.allConversations.filter(conversation => {
-      const hasUnreadMessages = conversation.unread_count > 0;
-      const shouldFilter = applyPageFilters(conversation, activeFilters);
-      return hasUnreadMessages && shouldFilter;
-    });
-  },
   getAllStatusChats: (_state, _, __, rootGetters) => activeFilters => {
     const currentUser = rootGetters.getCurrentUser;
     const currentUserId = rootGetters.getCurrentUser.id;

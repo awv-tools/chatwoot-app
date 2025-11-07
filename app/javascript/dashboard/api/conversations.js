@@ -13,6 +13,14 @@ class ConversationApi extends ApiClient {
   updateLabels(conversationID, labels) {
     return axios.post(`${this.url}/${conversationID}/labels`, { labels });
   }
+
+  markMessageReadOnProvider(conversationID) {
+    return axios
+      .post(`${this.url}/${conversationID}/mark_message_read_on_provider`)
+      .catch(error => {
+        return Promise.reject(error);
+      });
+  }
 }
 
 export default new ConversationApi();

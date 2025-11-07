@@ -135,6 +135,8 @@
     "HIDE_QUOTED_TEXT": "Hide Quoted Text",
     "SHOW_QUOTED_TEXT": "Show Quoted Text",
     "MESSAGE_READ": "Read",
-    "SENDING": "Sending"
+    "SENDING": "Sending",
+    "SHOW_UNREAD_ONLY": "Show unread conversations only",
+    "SHOW_ALL_CONVERSATIONS": "Show all conversations"
   }
 }

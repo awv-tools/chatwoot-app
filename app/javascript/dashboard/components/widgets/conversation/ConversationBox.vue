@@ -4,6 +4,8 @@ import ConversationHeader from './ConversationHeader.vue';
 import DashboardAppFrame from '../DashboardApp/Frame.vue';
 import EmptyState from './EmptyState/EmptyState.vue';
 import MessagesView from './MessagesView.vue';
+import ConversationApi from 'dashboard/api/conversations';
+import { INBOX_TYPES } from 'dashboard/helper/inbox';
 
 export default {
   components: {
@@ -39,6 +41,13 @@ export default {
       currentChat: 'getSelectedChat',
       dashboardApps: 'dashboardApps/getRecords',
     }),
+    inbox() {
+      if (!this.currentChat.inbox_id) return null;
+      return this.$store.getters['inboxes/getInbox'](this.currentChat.inbox_id);
+    },
+    isWhatsAppChannel() {
+      return this.inbox?.channel_type === INBOX_TYPES.WHATSAPP;
+    },
     dashboardAppTabs() {
       return [
         {
@@ -66,9 +75,10 @@ export default {
         }
       },
     },
-    'currentChat.id'() {
+    'currentChat.id'(newId) {
       this.fetchLabels();
       this.activeIndex = 0;
+      this.markWhatsAppMessageAsRead(newId);
     },
   },
   mounted() {
@@ -84,6 +94,13 @@ export default {
     },
     onDashboardAppTabChange(index) {
       this.activeIndex = index;
+    },
+    async markWhatsAppMessageAsRead(conversationId) {
+      if (!conversationId || !this.isWhatsAppChannel) {
+        return;
+      }
+
+      ConversationApi.markMessageReadOnProvider(conversationId);
     },
   },
 };

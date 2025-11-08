@@ -24,7 +24,7 @@ class Conversations::MarkMessageReadOnProviderService
   end
 
   def find_last_incoming_message
-    @conversation.messages.incoming.order(created_at: :desc).first
+    @conversation.messages.incoming.reorder(created_at: :desc).first
   end
 
   def provider_service

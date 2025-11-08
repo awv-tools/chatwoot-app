@@ -11,7 +11,7 @@ class Conversations::MarkMessageReadOnProviderService
     last_incoming_message = find_last_incoming_message
     return unless last_incoming_message&.source_id.present?
 
-    Rails.logger.debug "\e[36m\e[1m🔵 [MARK MESSAGE READ]\e[0m Channel: #{@channel.class}, Provider Service: #{provider_service.class}, \e[33m\e[1mWamid: #{last_incoming_message.source_id}\e[0m"
+    Rails.logger.debug "🔵 [MARK MESSAGE READ] Starting - Channel: #{@channel.class}, Provider Service: #{provider_service.class}, Wamid: #{last_incoming_message.source_id}"
     provider_service.mark_message_read(last_incoming_message.source_id)
   end
 

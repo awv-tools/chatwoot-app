@@ -196,20 +196,27 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
 
     api_version = GlobalConfigService.load('WHATSAPP_API_VERSION', 'v22.0')
     url = "#{api_base_path}/#{api_version}/#{phone_number_id}/messages"
+    
+    request_body = {
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: message_id
+    }
+    
+    headers = request_headers
+    api_key = whatsapp_channel.provider_config['api_key']
+    
+    Rails.logger.info "🔵 [WHATSAPP MARK READ] Request - URL: #{url}, Phone Number ID: #{phone_number_id}, API Version: #{api_version}, Token Present: #{api_key.present?}, Token Length: #{api_key&.length}, Body: #{request_body.to_json}"
 
     response = HTTParty.post(
       url,
-      headers: request_headers,
-      body: {
-        messaging_product: 'whatsapp',
-        status: 'read',
-        message_id: message_id
-      }.to_json
+      headers: headers,
+      body: request_body.to_json
     )
 
-    handle_mark_read_response(response)
+    handle_mark_read_response(response, url, request_body)
   rescue StandardError => e
-    Rails.logger.error "[WHATSAPP MARK READ] Error: #{e.message}"
+    Rails.logger.error "[WHATSAPP MARK READ] Error: #{e.message} - #{e.backtrace.first(3).join(', ')}"
     # Fail silently to not break conversation flow
   end
 
@@ -226,13 +233,23 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     request_headers
   end
 
-  def handle_mark_read_response(response)
+  def handle_mark_read_response(response, url = nil, request_body = nil)
+    Rails.logger.info "🔵 [WHATSAPP MARK READ] Response - Code: #{response.code}, Body: #{response.body}"
+    
+    # WhatsApp API can return 200 with errors in the body
+    parsed_response = response.parsed_response
+    
+    if parsed_response.is_a?(Hash) && parsed_response['error']
+      Rails.logger.error "[WHATSAPP MARK READ] API returned error in response body: #{parsed_response['error']}"
+      return
+    end
+    
     unless response.success?
       Rails.logger.error "[WHATSAPP MARK READ] API request failed: #{response.code} - #{response.body}"
       return
     end
 
     Rails.logger.info "[WHATSAPP MARK READ] ✅ Success! Status: #{response.code} - Message marked as read successfully on WhatsApp Cloud API"
-    response.parsed_response
+    parsed_response
   end
 end

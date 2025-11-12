@@ -98,6 +98,8 @@ const activeStatus = ref(wootConstants.STATUS_TYPE.ALL);
 const activeSortBy = ref(wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC);
 const showAdvancedFilters = ref(false);
 const showOnlyUnread = ref(false);
+// Track the last unread count to detect if we're stuck in a loop
+const lastUnreadCountBeforeLoad = ref(0);
 // chatsOnView is to store the chats that are currently visible on the screen,
 // which mirrors the conversationList.
 const chatsOnView = ref([]);
@@ -318,7 +320,8 @@ const pageTitle = computed(() => {
   return t('CHAT_LIST.TAB_HEADING');
 });
 
-const conversationList = computed(() => {
+// Unfiltered conversation list for pagination reference
+const unfilteredConversationList = computed(() => {
   let localConversationList = [];
 
   if (!hasAppliedFiltersOrActiveFolders.value) {
@@ -341,25 +344,22 @@ const conversationList = computed(() => {
     });
   }
 
+  return localConversationList;
+});
+
+const conversationList = computed(() => {
+  let localConversationList = [...unfilteredConversationList.value];
+
   // Filter by unread if toggle is active
+  // This filter is applied locally in the frontend after fetching data
   if (showOnlyUnread.value) {
     localConversationList = localConversationList.filter(
       conversation => conversation.unread_count > 0
     );
   }
 
-  // Sort: unread conversations first, then by existing sort order
-  // The lists from getters are already sorted, so we just need to prioritize unread
-  return localConversationList.sort((a, b) => {
-    const aHasUnread = a.unread_count > 0;
-    const bHasUnread = b.unread_count > 0;
-
-    // If both have same unread status, maintain original order (already sorted by getters)
-    if (aHasUnread === bHasUnread) return 0;
-
-    // Prioritize unread conversations
-    return aHasUnread ? -1 : 1;
-  });
+  // Return the list as-is, maintaining the original sort order from getters
+  return localConversationList;
 });
 
 const showEndOfListMessage = computed(() => {
@@ -595,6 +595,8 @@ function resetAndFetchData() {
   store.dispatch('conversationPage/reset');
   store.dispatch('emptyAllConversations');
   store.dispatch('clearConversationFilters');
+  // Reset unread count tracker when resetting data
+  lastUnreadCountBeforeLoad.value = 0;
   if (hasActiveFolders.value) {
     const payload = activeFolder.value.query;
     fetchSavedFilteredConversations(payload);
@@ -610,6 +612,28 @@ function loadMoreConversations() {
     return;
   }
 
+  // When unread filter is active, we need to prevent infinite loops
+  // The filtered list might be small, causing scroll to detect end prematurely
+  // But we ALWAYS make the request normally - the filter is applied AFTER fetching
+  if (showOnlyUnread.value) {
+    const currentUnreadCount = conversationList.value.length;
+
+    // If we loaded a page but the unread count didn't increase, we've likely
+    // reached all available unread conversations, so stop loading
+    // This prevents infinite loops when all remaining pages have no unread conversations
+    if (
+      lastUnreadCountBeforeLoad.value > 0 &&
+      currentUnreadCount === lastUnreadCountBeforeLoad.value
+    ) {
+      return;
+    }
+
+    // Store current count before loading (to compare after request completes)
+    lastUnreadCountBeforeLoad.value = currentUnreadCount;
+  }
+
+  // Always fetch more data normally - regardless of filter state
+  // The unread filter is applied locally AFTER fetching in the conversationList computed
   if (!hasAppliedFiltersOrActiveFolders.value) {
     fetchConversations();
   } else if (hasActiveFolders.value) {
@@ -857,6 +881,11 @@ watch(conversationFilters, (newVal, oldVal) => {
   if (newVal !== oldVal) {
     store.dispatch('updateChatListFilters', newVal);
   }
+});
+
+watch(showOnlyUnread, () => {
+  // Reset unread count tracker when filter is toggled
+  lastUnreadCountBeforeLoad.value = 0;
 });
 </script>
 

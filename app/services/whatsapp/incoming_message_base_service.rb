@@ -69,6 +69,7 @@ class Whatsapp::IncomingMessageBaseService
     message['contacts'].each do |contact|
       create_message(contact)
       attach_contact(contact)
+      attach_referral_data(message)
       @message.save!
     end
   end
@@ -77,6 +78,7 @@ class Whatsapp::IncomingMessageBaseService
     create_message(message)
     attach_files
     attach_location if message_type == 'location'
+    attach_referral_data(message)
     @message.save!
   end
 
@@ -143,6 +145,15 @@ class Whatsapp::IncomingMessageBaseService
       fallback_title: location_name,
       external_url: location['url']
     )
+  end
+
+  def attach_referral_data(message)
+    # Normalize ad_attribution_details to referral if needed
+    referral_data = message[:referral] || message[:ad_attribution_details]
+    return unless referral_data.present?
+
+    @message.additional_attributes ||= {}
+    @message.additional_attributes['referral'] = referral_data
   end
 
   def create_message(message)

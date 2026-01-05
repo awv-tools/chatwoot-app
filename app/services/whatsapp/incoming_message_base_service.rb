@@ -9,9 +9,12 @@ class Whatsapp::IncomingMessageBaseService
   def perform
     processed_params
 
-    if processed_params.try(:[], :statuses).present?
+    statuses = processed_params.try(:[], :statuses) || processed_params.try(:[], 'statuses')
+    messages = processed_params.try(:[], :messages) || processed_params.try(:[], 'messages')
+
+    if statuses.present?
       process_statuses
-    elsif processed_params.try(:[], :messages).present?
+    elsif messages.present?
       process_messages
     end
   end
@@ -26,7 +29,10 @@ class Whatsapp::IncomingMessageBaseService
     # Multiple webhook event can be received against the same message due to misconfigurations in the Meta
     # business manager account. While we have not found the core reason yet, the following line ensure that
     # there are no duplicate messages created.
-    return if find_message_by_source_id(@processed_params[:messages].first[:id]) || message_under_process?
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    message_id = first_message&.[](:id) || first_message&.[]('id')
+    return if find_message_by_source_id(message_id) || message_under_process?
 
     cache_message_source_id_in_redis
     set_contact
@@ -40,24 +46,35 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def process_statuses
-    return unless find_message_by_source_id(@processed_params[:statuses].first[:id])
+    statuses_array = @processed_params[:statuses] || @processed_params['statuses']
+    status = statuses_array&.first
+    return unless status
 
-    update_message_with_status(@message, @processed_params[:statuses].first)
+    status_id = status[:id] || status['id']
+    return unless find_message_by_source_id(status_id)
+
+    update_message_with_status(@message, status)
   rescue ArgumentError => e
     Rails.logger.error "Error while processing whatsapp status update #{e.message}"
   end
 
   def update_message_with_status(message, status)
-    message.status = status[:status]
-    if status[:status] == 'failed' && status[:errors].present?
-      error = status[:errors]&.first
-      message.external_error = "#{error[:code]}: #{error[:title]}"
+    status_value = status[:status] || status['status']
+    errors = status[:errors] || status['errors']
+
+    message.status = status_value
+    if status_value == 'failed' && errors.present?
+      error = errors&.first
+      error_code = error[:code] || error['code']
+      error_title = error[:title] || error['title']
+      message.external_error = "#{error_code}: #{error_title}"
     end
     message.save!
   end
 
   def create_messages
-    message = @processed_params[:messages].first
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    message = messages_array.first
     log_error(message) && return if error_webhook_event?(message)
 
     process_in_reply_to(message)
@@ -83,15 +100,22 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def set_contact
-    contact_params = @processed_params[:contacts]&.first
+    contacts_array = @processed_params[:contacts] || @processed_params['contacts']
+    contact_params = contacts_array&.first
     return if contact_params.blank?
 
-    waid = processed_waid(contact_params[:wa_id])
+    waid = processed_waid(contact_params[:wa_id] || contact_params['wa_id'])
+
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    from_number = messages_array.first[:from] || messages_array.first['from']
 
     contact_inbox = ::ContactInboxWithContactBuilder.new(
       source_id: waid,
       inbox: inbox,
-      contact_attributes: { name: contact_params.dig(:profile, :name), phone_number: "+#{@processed_params[:messages].first[:from]}" }
+      contact_attributes: { 
+        name: contact_params.dig(:profile, :name) || contact_params.dig('profile', 'name'), 
+        phone_number: "+#{from_number}" 
+      }
     ).perform
 
     @contact_inbox = contact_inbox
@@ -117,8 +141,12 @@ class Whatsapp::IncomingMessageBaseService
   def attach_files
     return if %w[text button interactive location contacts].include?(message_type)
 
-    attachment_payload = @processed_params[:messages].first[message_type.to_sym]
-    @message.content ||= attachment_payload[:caption]
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    attachment_payload = first_message&.[](message_type.to_sym) || first_message&.[](message_type)
+    return unless attachment_payload
+
+    @message.content ||= attachment_payload[:caption] || attachment_payload['caption']
 
     attachment_file = download_attachment_file(attachment_payload)
     return if attachment_file.blank?
@@ -135,7 +163,11 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def attach_location
-    location = @processed_params[:messages].first['location']
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    location = first_message&.[]('location') || first_message&.[](:location)
+    return unless location
+
     location_name = location['name'] ? "#{location['name']}, #{location['address']}" : ''
     @message.attachments.new(
       account_id: @message.account_id,
@@ -149,7 +181,9 @@ class Whatsapp::IncomingMessageBaseService
 
   def attach_referral_data(message)
     # Normalize ad_attribution_details to referral if needed
-    referral_data = message[:referral] || message[:ad_attribution_details]
+    # Check both string and symbol keys since webhook data comes as JSON (strings)
+    referral_data = message.dig(:referral) || message.dig('referral') || message.dig(:ad_attribution_details) || message.dig('ad_attribution_details')
+    
     return unless referral_data.present?
 
     @message.additional_attributes ||= {}
@@ -157,13 +191,14 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_message(message)
+    message_id = message[:id] || message['id']
     @message = @conversation.messages.build(
       content: message_content(message),
       account_id: @inbox.account_id,
       inbox_id: @inbox.id,
       message_type: :incoming,
       sender: @contact,
-      source_id: message[:id].to_s,
+      source_id: message_id.to_s,
       in_reply_to_external_id: @in_reply_to_external_id
     )
   end
@@ -200,7 +235,12 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def contact_name_matches_phone_number?
-    phone_number = "+#{@processed_params[:messages].first[:from]}"
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    from_number = first_message&.[](:from) || first_message&.[]('from')
+    return false unless from_number
+
+    phone_number = "+#{from_number}"
     formatted_phone_number = TelephoneNumber.parse(phone_number).international_number
     @contact.name == phone_number || @contact.name == formatted_phone_number
   end

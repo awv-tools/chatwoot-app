@@ -21,16 +21,19 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def message_type
-    @processed_params[:messages].first[:type]
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    message = messages_array.first
+    message[:type] || message['type']
   end
 
   def message_content(message)
     # TODO: map interactive messages back to button messages in chatwoot
-    message.dig(:text, :body) ||
-      message.dig(:button, :text) ||
-      message.dig(:interactive, :button_reply, :title) ||
-      message.dig(:interactive, :list_reply, :title) ||
-      message.dig(:name, :formatted_name)
+    # Try both symbol and string keys
+    message.dig(:text, :body) || message.dig('text', 'body') ||
+      message.dig(:button, :text) || message.dig('button', 'text') ||
+      message.dig(:interactive, :button_reply, :title) || message.dig('interactive', 'button_reply', 'title') ||
+      message.dig(:interactive, :list_reply, :title) || message.dig('interactive', 'list_reply', 'title') ||
+      message.dig(:name, :formatted_name) || message.dig('name', 'formatted_name')
   end
 
   def file_content_type(file_type)
@@ -52,7 +55,7 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def error_webhook_event?(message)
-    message.key?('errors')
+    message.key?('errors') || message.key?(:errors)
   end
 
   def log_error(message)
@@ -60,7 +63,8 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def process_in_reply_to(message)
-    @in_reply_to_external_id = message['context']&.[]('id')
+    context = message[:context] || message['context']
+    @in_reply_to_external_id = context&.[]('id') || context&.[](:id) if context
   end
 
   def find_message_by_source_id(source_id)
@@ -70,19 +74,34 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def message_under_process?
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: @processed_params[:messages].first[:id])
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    message_id = first_message&.[](:id) || first_message&.[]('id')
+    return false unless message_id
+
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
     Redis::Alfred.get(key)
   end
 
   def cache_message_source_id_in_redis
-    return if @processed_params.try(:[], :messages).blank?
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    return if messages_array.blank?
 
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: @processed_params[:messages].first[:id])
+    first_message = messages_array.first
+    message_id = first_message[:id] || first_message['id']
+    return unless message_id
+
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
     ::Redis::Alfred.setex(key, true)
   end
 
   def clear_message_source_id_from_redis
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: @processed_params[:messages].first[:id])
+    messages_array = @processed_params[:messages] || @processed_params['messages']
+    first_message = messages_array&.first
+    message_id = first_message&.[](:id) || first_message&.[]('id')
+    return unless message_id
+
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
     ::Redis::Alfred.delete(key)
   end
 end

@@ -269,3 +269,7 @@ group :development, :test do
   gem 'spring'
   gem 'spring-watcher-listen'
 end
+
+gem "ruby-lsp", group: :development
+gem "ruby-lsp-rails", group: :development
+gem "solargraph", group: :development

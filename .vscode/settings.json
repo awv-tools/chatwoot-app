@@ -1,9 +1,23 @@
 {
-    "cSpell.words": [
-        "chatwoot",
-        "dompurify"
-    ],
-    "rubyLsp.rubyVersionManager": {
-        "identifier": "auto"
+  "rubyLsp.rubyVersionManager": {
+    "identifier": "rbenv"
+  },
+  "rubyLsp.bundleGemfile": "${workspaceFolder}/Gemfile",
+  "rubyLsp.customRubyCommand": null,
+  "rubyLsp.enableExperimentalFeatures": true,
+  "rubyLsp.featuresConfiguration": {
+    "documentSymbol": {
+      "enabled": true
+    },
+    "hover": {
+      "enabled": true
+    },
+    "definition": {
+      "enabled": true
+    },
+    "inlayHint": {
+      "implicitHashValue": true,
+      "implicitRescue": true
     }
+  }
 }

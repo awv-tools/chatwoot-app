@@ -159,6 +159,7 @@ GEM
       aws-sigv4 (~> 1.1)
     aws-sigv4 (1.5.2)
       aws-eventstream (~> 1, >= 1.0.2)
+    backport (1.2.0)
     barnes (0.0.9)
       multi_json (~> 1)
       statsd-ruby (~> 1.1)
@@ -452,6 +453,7 @@ GEM
       reline (>= 0.3.6)
     iso-639 (0.3.8)
       csv
+    jaro_winkler (1.6.1)
     jbuilder (2.11.5)
       actionview (>= 5.0.0)
       activesupport (>= 5.0.0)
@@ -495,6 +497,10 @@ GEM
       faraday-multipart
       json (>= 1.8)
       rexml
+    kramdown (2.5.1)
+      rexml (>= 3.3.9)
+    kramdown-parser-gfm (1.1.0)
+      kramdown (~> 2.0)
     language_server-protocol (3.17.0.5)
     launchy (3.1.1)
       addressable (~> 2.8)
@@ -599,6 +605,7 @@ GEM
       rack (>= 1.2, < 4)
       snaky_hash (~> 2.0)
       version_gem (~> 1.1)
+    observer (0.1.2)
     oj (3.16.10)
       bigdecimal (>= 3.0)
       ostruct (>= 0.2)
@@ -728,6 +735,8 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
+    rbs (3.10.0)
+      logger
     redis (5.0.6)
       redis-client (>= 0.9.0)
     redis-client (0.22.2)
@@ -805,6 +814,12 @@ GEM
     rubocop-rspec (3.6.0)
       lint_roller (~> 1.1)
       rubocop (~> 1.72, >= 1.72.1)
+    ruby-lsp (0.26.4)
+      language_server-protocol (~> 3.17.0)
+      prism (>= 1.2, < 2.0)
+      rbs (>= 3, < 5)
+    ruby-lsp-rails (0.4.8)
+      ruby-lsp (>= 0.26.0, < 0.27.0)
     ruby-openai (7.3.1)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
@@ -913,6 +928,25 @@ GEM
     snaky_hash (2.0.1)
       hashie
       version_gem (~> 1.1, >= 1.1.1)
+    solargraph (0.54.1)
+      backport (~> 1.2)
+      benchmark
+      bundler (~> 2.0)
+      diff-lcs (~> 1.4)
+      jaro_winkler (~> 1.6)
+      kramdown (~> 2.3)
+      kramdown-parser-gfm (~> 1.1)
+      logger (~> 1.6)
+      observer (~> 0.1)
+      ostruct (~> 0.6)
+      parser (~> 3.0)
+      rbs (~> 3.3)
+      reverse_markdown (>= 2.0, < 4)
+      rubocop (~> 1.38)
+      thor (~> 1.0)
+      tilt (~> 2.0)
+      yard (~> 0.9, >= 0.9.24)
+      yard-solargraph (~> 0.1)
     sorbet-runtime (0.5.11934)
     spring (4.1.1)
     spring-watcher-listen (2.1.0)
@@ -997,6 +1031,9 @@ GEM
     working_hours (1.4.1)
       activesupport (>= 3.2)
       tzinfo
+    yard (0.9.38)
+    yard-solargraph (0.1.0)
+      yard (~> 0.9)
     zeitwerk (2.6.17)
 
 PLATFORMS
@@ -1118,6 +1155,8 @@ DEPENDENCIES
   rubocop-performance
   rubocop-rails
   rubocop-rspec
+  ruby-lsp
+  ruby-lsp-rails
   ruby-openai
   ruby_llm (>= 1.8.2)
   ruby_llm-schema
@@ -1136,6 +1175,7 @@ DEPENDENCIES
   simplecov (>= 0.21)
   simplecov_json_formatter
   slack-ruby-client (~> 2.7.0)
+  solargraph
   spring
   spring-watcher-listen
   squasher

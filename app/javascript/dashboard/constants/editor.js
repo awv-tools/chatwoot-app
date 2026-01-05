@@ -5,7 +5,7 @@ export const FORMATTING = {
   // Channel formatting
   'Channel::Email': {
     marks: ['strong', 'em', 'code', 'link'],
-    nodes: ['bulletList', 'orderedList', 'codeBlock', 'blockquote'],
+    nodes: ['bulletList', 'orderedList', 'codeBlock', 'blockquote', 'image'],
     menu: [
       'strong',
       'em',
@@ -19,7 +19,7 @@ export const FORMATTING = {
   },
   'Channel::WebWidget': {
     marks: ['strong', 'em', 'code', 'link', 'strike'],
-    nodes: ['bulletList', 'orderedList', 'codeBlock', 'blockquote'],
+    nodes: ['bulletList', 'orderedList', 'codeBlock', 'blockquote', 'image'],
     menu: [
       'strong',
       'em',
@@ -33,9 +33,9 @@ export const FORMATTING = {
     ],
   },
   'Channel::Api': {
-    marks: [],
+    marks: ['strong', 'em'],
     nodes: [],
-    menu: [],
+    menu: ['strong', 'em', 'undo', 'redo'],
   },
   'Channel::FacebookPage': {
     marks: ['strong', 'em', 'code', 'strike'],
@@ -109,6 +109,11 @@ export const FORMATTING = {
     nodes: [],
     menu: [],
   },
+  'Channel::Tiktok': {
+    marks: [],
+    nodes: [],
+    menu: [],
+  },
   // Special contexts (not actual channels)
   'Context::Default': {
     marks: ['strong', 'em', 'code', 'link', 'strike'],
@@ -127,7 +132,7 @@ export const FORMATTING = {
   },
   'Context::MessageSignature': {
     marks: ['strong', 'em', 'link'],
-    nodes: [],
+    nodes: ['image'],
     menu: ['strong', 'em', 'link', 'undo', 'redo', 'imageUpload'],
   },
   'Context::InboxSettings': {
@@ -151,6 +156,85 @@ export const ARTICLE_EDITOR_MENU_OPTIONS = [
   'h3',
   'imageUpload',
   'code',
+];
+
+/**
+ * Markdown formatting patterns for stripping unsupported formatting.
+ *
+ * Maps camelCase type names to ProseMirror snake_case schema names.
+ * Order matters: codeBlock before code to avoid partial matches.
+ */
+export const MARKDOWN_PATTERNS = [
+  // --- BLOCK NODES ---
+  {
+    type: 'codeBlock', // PM: code_block, eg: ```js\ncode\n```
+    patterns: [
+      { pattern: /`{3}(?:\w+)?\n?([\s\S]*?)`{3}/g, replacement: '$1' },
+    ],
+  },
+  {
+    type: 'blockquote', // PM: blockquote, eg: > quote
+    patterns: [{ pattern: /^> ?/gm, replacement: '' }],
+  },
+  {
+    type: 'bulletList', // PM: bullet_list, eg: - item
+    patterns: [{ pattern: /^[\t ]*[-*+]\s+/gm, replacement: '' }],
+  },
+  {
+    type: 'orderedList', // PM: ordered_list, eg: 1. item
+    patterns: [{ pattern: /^[\t ]*\d+\.\s+/gm, replacement: '' }],
+  },
+  {
+    type: 'heading', // PM: heading, eg: ## Heading
+    patterns: [{ pattern: /^#{1,6}\s+/gm, replacement: '' }],
+  },
+  {
+    type: 'horizontalRule', // PM: horizontal_rule, eg: ---
+    patterns: [{ pattern: /^(?:---|___|\*\*\*)\s*$/gm, replacement: '' }],
+  },
+  {
+    type: 'image', // PM: image, eg: ![alt](url)
+    patterns: [{ pattern: /!\[([^\]]*)\]\([^)]+\)/g, replacement: '$1' }],
+  },
+  {
+    type: 'hardBreak', // PM: hard_break, eg: line\\\n or line  \n
+    patterns: [
+      { pattern: /\\\n/g, replacement: '\n' },
+      { pattern: / {2,}\n/g, replacement: '\n' },
+    ],
+  },
+  // --- INLINE MARKS ---
+  {
+    type: 'strong', // PM: strong, eg: **bold** or __bold__
+    patterns: [
+      { pattern: /\*\*(.+?)\*\*/g, replacement: '$1' },
+      { pattern: /__(.+?)__/g, replacement: '$1' },
+    ],
+  },
+  {
+    type: 'em', // PM: em, eg: *italic* or _italic_
+    patterns: [
+      { pattern: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, replacement: '$1' },
+      // Match _text_ only at word boundaries (whitespace/string start/end)
+      // Preserves underscores in URLs (e.g., https://example.com/path_name) and variable names
+      {
+        pattern: /(?<=^|[\s])_([^_\s][^_]*[^_\s]|[^_\s])_(?=$|[\s])/g,
+        replacement: '$1',
+      },
+    ],
+  },
+  {
+    type: 'strike', // PM: strike, eg: ~~strikethrough~~
+    patterns: [{ pattern: /~~(.+?)~~/g, replacement: '$1' }],
+  },
+  {
+    type: 'code', // PM: code, eg: `inline code`
+    patterns: [{ pattern: /`([^`]+)`/g, replacement: '$1' }],
+  },
+  {
+    type: 'link', // PM: link, eg: [text](url)
+    patterns: [{ pattern: /\[([^\]]+)\]\([^)]+\)/g, replacement: '$1' }],
+  },
 ];
 
 // Editor image resize options for Message Editor

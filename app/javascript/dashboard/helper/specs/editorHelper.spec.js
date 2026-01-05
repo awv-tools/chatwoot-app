@@ -5,6 +5,7 @@ import {
   replaceSignature,
   cleanSignature,
   extractTextFromMarkdown,
+  stripUnsupportedSignatureMarkdown,
   insertAtCursor,
   findNodeToInsertImage,
   setURLWithQueryAndSize,
@@ -13,6 +14,7 @@ import {
   getSelectionCoords,
   getMenuAnchor,
   calculateMenuPosition,
+  stripUnsupportedFormatting,
 } from '../editorHelper';
 import { FORMATTING } from 'dashboard/constants/editor';
 import { EditorState } from '@chatwoot/prosemirror-schema';
@@ -143,6 +145,107 @@ describe('appendSignature', () => {
   });
 });
 
+describe('stripUnsupportedSignatureMarkdown', () => {
+  const richSignature =
+    '**Bold** _italic_ [link](http://example.com) ![](http://localhost:3000/image.png)';
+
+  it('keeps all formatting for Email channel (supports image, link, strong, em)', () => {
+    const result = stripUnsupportedSignatureMarkdown(
+      richSignature,
+      'Channel::Email'
+    );
+    expect(result).toContain('**Bold**');
+    expect(result).toContain('_italic_');
+    expect(result).toContain('[link](http://example.com)');
+    expect(result).toContain('![](http://localhost:3000/image.png)');
+  });
+  it('strips images but keeps bold/italic for Api channel', () => {
+    const result = stripUnsupportedSignatureMarkdown(
+      richSignature,
+      'Channel::Api'
+    );
+    expect(result).toContain('**Bold**');
+    expect(result).toContain('_italic_');
+    expect(result).toContain('link'); // link text kept
+    expect(result).not.toContain('[link]('); // link syntax removed
+    expect(result).not.toContain('![]('); // image removed
+  });
+  it('strips images but keeps bold/italic/link for Telegram channel', () => {
+    const result = stripUnsupportedSignatureMarkdown(
+      richSignature,
+      'Channel::Telegram'
+    );
+    expect(result).toContain('**Bold**');
+    expect(result).toContain('_italic_');
+    expect(result).toContain('[link](http://example.com)');
+    expect(result).not.toContain('![](');
+  });
+  it('strips all formatting for SMS channel', () => {
+    const result = stripUnsupportedSignatureMarkdown(
+      richSignature,
+      'Channel::Sms'
+    );
+    expect(result).toContain('Bold');
+    expect(result).toContain('italic');
+    expect(result).toContain('link');
+    expect(result).not.toContain('**');
+    expect(result).not.toContain('_');
+    expect(result).not.toContain('[');
+    expect(result).not.toContain('![](');
+  });
+  it('returns empty string for empty input', () => {
+    expect(stripUnsupportedSignatureMarkdown('', 'Channel::Api')).toBe('');
+    expect(stripUnsupportedSignatureMarkdown(null, 'Channel::Api')).toBe('');
+  });
+});
+
+describe('appendSignature with channelType', () => {
+  const signatureWithImage =
+    'Thanks\n![](http://localhost:3000/image.png?cw_image_height=24px)';
+
+  it('keeps images for Email channel', () => {
+    const result = appendSignature(
+      'Hello',
+      signatureWithImage,
+      'Channel::Email'
+    );
+    expect(result).toContain('![](http://localhost:3000/image.png');
+  });
+  it('keeps images for WebWidget channel', () => {
+    const result = appendSignature(
+      'Hello',
+      signatureWithImage,
+      'Channel::WebWidget'
+    );
+    expect(result).toContain('![](http://localhost:3000/image.png');
+  });
+  it('strips images but keeps text for Api channel', () => {
+    const result = appendSignature('Hello', signatureWithImage, 'Channel::Api');
+    expect(result).not.toContain('![](');
+    expect(result).toContain('Thanks');
+  });
+  it('strips images but keeps text for WhatsApp channel', () => {
+    const result = appendSignature(
+      'Hello',
+      signatureWithImage,
+      'Channel::Whatsapp'
+    );
+    expect(result).not.toContain('![](');
+    expect(result).toContain('Thanks');
+  });
+  it('keeps images when channelType is not provided', () => {
+    const result = appendSignature('Hello', signatureWithImage);
+    expect(result).toContain('![](http://localhost:3000/image.png');
+  });
+  it('keeps bold/italic for channels that support them', () => {
+    const boldSignature = '**Bold** *italic* Thanks';
+    const result = appendSignature('Hello', boldSignature, 'Channel::Api');
+    // Api supports strong and em
+    expect(result).toContain('**Bold**');
+    expect(result).toContain('*italic*');
+  });
+});
+
 describe('cleanSignature', () => {
   it('removes any instance of horizontal rule', () => {
     const options = [
@@ -198,6 +301,37 @@ describe('removeSignature', () => {
     expect(removeSignature('This is a test\n\n--', 'This is a signature')).toBe(
       'This is a test\n\n'
     );
+  });
+});
+
+describe('removeSignature with stripped signature', () => {
+  const signatureWithImage =
+    'Thanks\n![](http://localhost:3000/image.png?cw_image_height=24px)';
+
+  it('removes stripped signature from body', () => {
+    // Simulate a body where signature was added with images stripped
+    const bodyWithStrippedSignature = 'Hello\n\n--\n\nThanks';
+    const result = removeSignature(
+      bodyWithStrippedSignature,
+      signatureWithImage
+    );
+    expect(result).toBe('Hello\n\n');
+  });
+  it('removes original signature from body', () => {
+    // Simulate a body where signature was added with images (using cleanSignature format)
+    const cleanedSig = cleanSignature(signatureWithImage);
+    const bodyWithOriginalSignature = `Hello\n\n--\n\n${cleanedSig}`;
+    const result = removeSignature(
+      bodyWithOriginalSignature,
+      signatureWithImage
+    );
+    expect(result).toBe('Hello\n\n');
+  });
+  it('handles signature without images', () => {
+    const simpleSignature = 'Best regards';
+    const body = 'Hello\n\n--\n\nBest regards';
+    const result = removeSignature(body, simpleSignature);
+    expect(result).toBe('Hello\n\n');
   });
 });
 
@@ -741,6 +875,177 @@ describe('getFormattingForEditor', () => {
       expect(Array.isArray(result.marks)).toBe(true);
       expect(Array.isArray(result.nodes)).toBe(true);
       expect(Array.isArray(result.menu)).toBe(true);
+    });
+  });
+});
+
+describe('stripUnsupportedFormatting', () => {
+  describe('when schema supports all formatting', () => {
+    const fullSchema = {
+      marks: { strong: {}, em: {}, code: {}, strike: {}, link: {} },
+      nodes: { bulletList: {}, orderedList: {}, codeBlock: {}, blockquote: {} },
+    };
+
+    it('preserves all formatting when schema supports it', () => {
+      const content = '**bold** and *italic* and `code`';
+      expect(stripUnsupportedFormatting(content, fullSchema)).toBe(content);
+    });
+
+    it('preserves links when schema supports them', () => {
+      const content = 'Check [this link](https://example.com)';
+      expect(stripUnsupportedFormatting(content, fullSchema)).toBe(content);
+    });
+
+    it('preserves lists when schema supports them', () => {
+      const content = '- item 1\n- item 2\n1. first\n2. second';
+      expect(stripUnsupportedFormatting(content, fullSchema)).toBe(content);
+    });
+  });
+
+  describe('when schema has no formatting support (eg:SMS channel)', () => {
+    const emptySchema = {
+      marks: {},
+      nodes: {},
+    };
+
+    it('strips bold formatting', () => {
+      expect(stripUnsupportedFormatting('**bold text**', emptySchema)).toBe(
+        'bold text'
+      );
+      expect(stripUnsupportedFormatting('__bold text__', emptySchema)).toBe(
+        'bold text'
+      );
+    });
+
+    it('strips italic formatting', () => {
+      expect(stripUnsupportedFormatting('*italic text*', emptySchema)).toBe(
+        'italic text'
+      );
+      expect(stripUnsupportedFormatting('_italic text_', emptySchema)).toBe(
+        'italic text'
+      );
+    });
+
+    it('preserves underscores in URLs and mid-word positions', () => {
+      // Underscores in URLs should not be stripped as italic formatting
+      expect(
+        stripUnsupportedFormatting(
+          'https://www.chatwoot.com/new_first_second-third/ssd',
+          emptySchema
+        )
+      ).toBe('https://www.chatwoot.com/new_first_second-third/ssd');
+
+      // Underscores in variable names should not be stripped
+      expect(
+        stripUnsupportedFormatting('some_variable_name', emptySchema)
+      ).toBe('some_variable_name');
+
+      // But actual italic formatting with spaces should still be stripped
+      expect(
+        stripUnsupportedFormatting('hello _world_ there', emptySchema)
+      ).toBe('hello world there');
+    });
+
+    it('strips inline code formatting', () => {
+      expect(stripUnsupportedFormatting('`inline code`', emptySchema)).toBe(
+        'inline code'
+      );
+    });
+
+    it('strips strikethrough formatting', () => {
+      expect(stripUnsupportedFormatting('~~strikethrough~~', emptySchema)).toBe(
+        'strikethrough'
+      );
+    });
+
+    it('strips links but keeps text', () => {
+      expect(
+        stripUnsupportedFormatting(
+          'Check [this link](https://example.com)',
+          emptySchema
+        )
+      ).toBe('Check this link');
+    });
+
+    it('strips bullet list markers', () => {
+      expect(
+        stripUnsupportedFormatting('- item 1\n- item 2', emptySchema)
+      ).toBe('item 1\nitem 2');
+      expect(
+        stripUnsupportedFormatting('* item 1\n* item 2', emptySchema)
+      ).toBe('item 1\nitem 2');
+    });
+
+    it('strips ordered list markers', () => {
+      expect(
+        stripUnsupportedFormatting('1. first\n2. second', emptySchema)
+      ).toBe('first\nsecond');
+    });
+
+    it('strips code block markers', () => {
+      expect(
+        stripUnsupportedFormatting('```javascript\ncode here\n```', emptySchema)
+      ).toBe('code here\n');
+    });
+
+    it('strips blockquote markers', () => {
+      expect(stripUnsupportedFormatting('> quoted text', emptySchema)).toBe(
+        'quoted text'
+      );
+    });
+
+    it('handles complex content with multiple formatting types', () => {
+      const content =
+        '**Bold** and *italic* with `code` and [link](url)\n- list item';
+      const expected = 'Bold and italic with code and link\nlist item';
+      expect(stripUnsupportedFormatting(content, emptySchema)).toBe(expected);
+    });
+  });
+
+  describe('when schema has partial support', () => {
+    const partialSchema = {
+      marks: { strong: {}, em: {} },
+      nodes: {},
+    };
+
+    it('preserves supported marks and strips unsupported ones', () => {
+      const content = '**bold** and `code`';
+      expect(stripUnsupportedFormatting(content, partialSchema)).toBe(
+        '**bold** and code'
+      );
+    });
+
+    it('strips unsupported nodes but keeps supported marks', () => {
+      const content = '**bold** text\n- list item';
+      expect(stripUnsupportedFormatting(content, partialSchema)).toBe(
+        '**bold** text\nlist item'
+      );
+    });
+  });
+
+  describe('edge cases', () => {
+    it('returns content unchanged if content is empty', () => {
+      expect(stripUnsupportedFormatting('', {})).toBe('');
+    });
+
+    it('returns content unchanged if content is null', () => {
+      expect(stripUnsupportedFormatting(null, {})).toBe(null);
+    });
+
+    it('returns content unchanged if content is undefined', () => {
+      expect(stripUnsupportedFormatting(undefined, {})).toBe(undefined);
+    });
+
+    it('returns content unchanged if schema is null', () => {
+      expect(stripUnsupportedFormatting('**bold**', null)).toBe('**bold**');
+    });
+
+    it('handles nested formatting correctly', () => {
+      const emptySchema = { marks: {}, nodes: {} };
+      // After stripping bold (**), the remaining *and italic* becomes italic and is stripped too
+      expect(
+        stripUnsupportedFormatting('**bold *and italic***', emptySchema)
+      ).toBe('bold and italic');
     });
   });
 });

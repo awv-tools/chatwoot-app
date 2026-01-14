@@ -11,11 +11,16 @@ class Whatsapp::IncomingMessageBaseService
 
     statuses = processed_params.try(:[], :statuses) || processed_params.try(:[], 'statuses')
     messages = processed_params.try(:[], :messages) || processed_params.try(:[], 'messages')
+    message_echoes = processed_params.try(:[], :message_echoes) || processed_params.try(:[], 'message_echoes')
 
     if statuses.present?
       process_statuses
     elsif messages.present?
       process_messages
+    elsif message_echoes.present?
+      process_message_echoes
+    else
+      Rails.logger.warn "WhatsApp webhook received but no processable content found (statuses, messages, or message_echoes/smb_message_echoes)"
     end
   end
 
@@ -243,5 +248,45 @@ class Whatsapp::IncomingMessageBaseService
     phone_number = "+#{from_number}"
     formatted_phone_number = TelephoneNumber.parse(phone_number).international_number
     @contact.name == phone_number || @contact.name == formatted_phone_number
+  end
+
+  def process_message_echoes
+    webhook_url = ENV['WHATSAPP_MESSAGE_ECHOES_WEBHOOK_URL']
+    return if webhook_url.blank?
+
+    message_echoes_array = @processed_params[:message_echoes] || @processed_params['message_echoes']
+    return if message_echoes_array.blank?
+
+    metadata = @processed_params[:metadata] || @processed_params['metadata'] || {}
+    payload = {
+      account: @inbox.account.webhook_data,
+      inbox: @inbox.webhook_data,
+      event: 'smb_message_echoes',
+      message_echoes: message_echoes_array,
+      metadata: metadata,
+      created_at: Time.current
+    }
+
+    forward_to_webhook(webhook_url, payload)
+  rescue StandardError => e
+    Rails.logger.error "Error while processing whatsapp smb_message_echoes: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+  end
+
+  def forward_to_webhook(webhook_url, payload)
+    response = HTTParty.post(
+      webhook_url,
+      headers: { 'Content-Type' => 'application/json' },
+      body: payload.to_json,
+      timeout: 10
+    )
+
+    return if response.success?
+
+    Rails.logger.warn "Failed to forward smb_message_echoes to webhook: #{webhook_url}. Status: #{response.code}, Body: #{response.body}"
+  rescue HTTParty::Error => e
+    Rails.logger.error "HTTP error while forwarding smb_message_echoes to webhook: #{e.message}"
+  rescue StandardError => e
+    Rails.logger.error "Error while forwarding smb_message_echoes to webhook: #{e.message}"
   end
 end

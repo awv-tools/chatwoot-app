@@ -2,7 +2,8 @@ class Webhooks::WhatsappEventsJob < ApplicationJob
   queue_as :low
 
   def perform(params = {})
-    channel = find_channel_from_whatsapp_business_payload(params)
+    params = params.with_indifferent_access if params.respond_to?(:with_indifferent_access)
+    channel = find_channel(params)
 
     if channel_is_inactive?(channel)
       Rails.logger.warn("Inactive WhatsApp channel: #{channel&.phone_number || "unknown - #{params[:phone_number]}"}")
@@ -27,10 +28,18 @@ class Webhooks::WhatsappEventsJob < ApplicationJob
     false
   end
 
-  def find_channel_by_url_param(params)
-    return unless params[:phone_number]
+  # In Chatwoot, the WhatsApp webhook endpoint is scoped by `:phone_number` in the URL.
+  # Prefer that to resolve the channel/inbox. Fallback to metadata mapping only when needed
+  # (eg: legacy payloads without the URL param).
+  def find_channel(params)
+    find_channel_by_url_param(params) || find_channel_from_whatsapp_business_payload(params)
+  end
 
-    Channel::Whatsapp.find_by(phone_number: params[:phone_number])
+  def find_channel_by_url_param(params)
+    phone_number = params[:phone_number]
+    return if phone_number.blank?
+
+    Channel::Whatsapp.find_by(phone_number: phone_number)
   end
 
   def find_channel_from_whatsapp_business_payload(params)
@@ -39,7 +48,7 @@ class Webhooks::WhatsappEventsJob < ApplicationJob
     # we will give priority to the phone_number in the payload
     return get_channel_from_wb_payload(params) if params[:object] == 'whatsapp_business_account'
 
-    find_channel_by_url_param(params)
+    nil
   end
 
   def get_channel_from_wb_payload(wb_params)

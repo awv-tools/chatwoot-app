@@ -59,7 +59,7 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
   end
 
   def api_headers
-    { 'Authorization' => "Bearer #{whatsapp_channel.provider_config['api_key']}", 'Content-Type' => 'application/json' }
+    request_headers
   end
 
   def create_csat_template(template_config)
@@ -76,12 +76,20 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
   end
 
   def media_url(media_id, phone_number_id = nil)
-    url = "#{api_base_path}/v13.0/#{media_id}"
+    api_version = GlobalConfigService.load('WHATSAPP_API_VERSION', 'v24.0')
+    url = "#{api_base_path}/#{api_version}/#{media_id}"
     url += "?phone_number_id=#{phone_number_id}" if phone_number_id
     url
   end
 
   private
+
+  def request_headers
+    {
+      'Authorization' => "Bearer #{whatsapp_channel.provider_config['api_key']}",
+      'Content-Type' => 'application/json'
+    }
+  end
 
   def csat_template_service
     @csat_template_service ||= Whatsapp::CsatTemplateService.new(whatsapp_channel)
@@ -91,13 +99,16 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     ENV.fetch('WHATSAPP_CLOUD_BASE_URL', 'https://graph.facebook.com')
   end
 
-  # TODO: See if we can unify the API versions and for both paths and make it consistent with out facebook app API versions
+  def default_api_version
+    GlobalConfigService.load('WHATSAPP_API_VERSION', 'v24.0')
+  end
+
   def phone_id_path
-    "#{api_base_path}/v13.0/#{whatsapp_channel.provider_config['phone_number_id']}"
+    "#{api_base_path}/#{default_api_version}/#{whatsapp_channel.provider_config['phone_number_id']}"
   end
 
   def business_account_path
-    "#{api_base_path}/v14.0/#{whatsapp_channel.provider_config['business_account_id']}"
+    "#{api_base_path}/#{default_api_version}/#{whatsapp_channel.provider_config['business_account_id']}"
   end
 
   def send_text_message(phone_number, message)
@@ -213,62 +224,34 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     phone_number_id = whatsapp_channel.provider_config['phone_number_id']
     return if phone_number_id.blank?
 
-    api_version = GlobalConfigService.load('WHATSAPP_API_VERSION', 'v22.0')
-    url = "#{api_base_path}/#{api_version}/#{phone_number_id}/messages"
-    
+    url = "#{api_base_path}/#{default_api_version}/#{phone_number_id}/messages"
     request_body = {
       messaging_product: 'whatsapp',
       status: 'read',
       message_id: message_id
     }
-    
-    headers = request_headers
-    api_key = whatsapp_channel.provider_config['api_key']
-    
-    Rails.logger.info "🔵 [WHATSAPP MARK READ] Request - URL: #{url}, Phone Number ID: #{phone_number_id}, API Version: #{api_version}, Token Present: #{api_key.present?}, Token Length: #{api_key&.length}, Body: #{request_body.to_json}"
 
     response = HTTParty.post(
       url,
-      headers: headers,
+      headers: request_headers,
       body: request_body.to_json
     )
 
-    handle_mark_read_response(response, url, request_body)
+    handle_mark_read_response(response)
   rescue StandardError => e
-    Rails.logger.error "[WHATSAPP MARK READ] Error: #{e.message} - #{e.backtrace.first(3).join(', ')}"
-    # Fail silently to not break conversation flow
+    Rails.logger.error "WhatsApp mark read error: #{e.message}"
   end
 
-  private
-
-  def request_headers
-    {
-      'Authorization' => "Bearer #{whatsapp_channel.provider_config['api_key']}",
-      'Content-Type' => 'application/json'
-    }
-  end
-
-  def api_headers
-    request_headers
-  end
-
-  def handle_mark_read_response(response, url = nil, request_body = nil)
-    Rails.logger.info "🔵 [WHATSAPP MARK READ] Response - Code: #{response.code}, Body: #{response.body}"
-    
-    # WhatsApp API can return 200 with errors in the body
+  def handle_mark_read_response(response)
     parsed_response = response.parsed_response
-    
+
     if parsed_response.is_a?(Hash) && parsed_response['error']
-      Rails.logger.error "[WHATSAPP MARK READ] API returned error in response body: #{parsed_response['error']}"
-      return
-    end
-    
-    unless response.success?
-      Rails.logger.error "[WHATSAPP MARK READ] API request failed: #{response.code} - #{response.body}"
+      Rails.logger.error "WhatsApp mark read API error: #{parsed_response['error']}"
       return
     end
 
-    Rails.logger.info "[WHATSAPP MARK READ] ✅ Success! Status: #{response.code} - Message marked as read successfully on WhatsApp Cloud API"
+    return unless response.success?
+
     parsed_response
   end
 end

@@ -19,7 +19,7 @@ class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageB
   def download_attachment_file(attachment_payload)
     url_response = HTTParty.get(
       inbox.channel.media_url(
-        attachment_payload[:id],
+        attachment_payload[:id] || attachment_payload['id'],
         inbox.channel.provider_config['phone_number_id']
       ),
       headers: inbox.channel.api_headers

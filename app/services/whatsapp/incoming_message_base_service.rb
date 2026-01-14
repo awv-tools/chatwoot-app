@@ -251,42 +251,196 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def process_message_echoes
-    webhook_url = ENV['WHATSAPP_MESSAGE_ECHOES_WEBHOOK_URL']
-    return if webhook_url.blank?
-
     message_echoes_array = @processed_params[:message_echoes] || @processed_params['message_echoes']
     return if message_echoes_array.blank?
 
-    metadata = @processed_params[:metadata] || @processed_params['metadata'] || {}
-    payload = {
-      account: @inbox.account.webhook_data,
-      inbox: @inbox.webhook_data,
-      event: 'smb_message_echoes',
-      message_echoes: message_echoes_array,
-      metadata: metadata,
-      created_at: Time.current
-    }
-
-    forward_to_webhook(webhook_url, payload)
+    message_echoes_array.each do |echo|
+      process_single_echo(echo)
+    end
   rescue StandardError => e
     Rails.logger.error "Error while processing whatsapp smb_message_echoes: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
   end
 
-  def forward_to_webhook(webhook_url, payload)
-    response = HTTParty.post(
-      webhook_url,
-      headers: { 'Content-Type' => 'application/json' },
-      body: payload.to_json,
-      timeout: 10
+  def process_single_echo(echo)
+    echo_id = echo[:id] || echo['id']
+    return if echo_id.blank?
+
+    return if find_message_by_source_id(echo_id)
+    return if message_under_process_for_echo?(echo_id)
+
+    cache_message_source_id_in_redis_for_echo(echo_id)
+
+    target_number = echo[:to] || echo['to']
+    return if target_number.blank?
+
+    waid = processed_waid(target_number)
+    contact_inbox = ::ContactInboxWithContactBuilder.new(
+      source_id: waid,
+      inbox: inbox,
+      contact_attributes: { 
+        phone_number: "+#{target_number}" 
+      }
+    ).perform
+
+    return unless contact_inbox&.contact
+
+    ActiveRecord::Base.transaction do
+      set_conversation_for_echo(contact_inbox)
+      create_echo_message(echo, contact_inbox)
+      clear_message_source_id_from_redis_for_echo(echo_id)
+    end
+  rescue StandardError => e
+    clear_message_source_id_from_redis_for_echo(echo_id) if echo_id.present?
+    Rails.logger.error "Error processing echo #{echo_id}: #{e.message}"
+    raise e
+  end
+
+  def create_echo_message(echo, contact_inbox)
+    echo_id = echo[:id] || echo['id']
+    echo_type = echo[:type] || echo['type']
+    
+    return if unprocessable_message_type?(echo_type)
+
+    conversation = find_or_create_conversation_for_echo(contact_inbox)
+    
+    message = conversation.messages.build(
+      content: extract_echo_content(echo),
+      account_id: inbox.account_id,
+      inbox_id: inbox.id,
+      message_type: :outgoing,
+      sender: echo_message_sender,
+      source_id: echo_id.to_s
     )
 
-    return if response.success?
+    attach_echo_files(message, echo) unless %w[text button interactive location contacts].include?(echo_type)
+    attach_echo_location(message, echo) if echo_type == 'location'
 
-    Rails.logger.warn "Failed to forward smb_message_echoes to webhook: #{webhook_url}. Status: #{response.code}, Body: #{response.body}"
-  rescue HTTParty::Error => e
-    Rails.logger.error "HTTP error while forwarding smb_message_echoes to webhook: #{e.message}"
+    message.save!
+  end
+
+  def echo_message_sender
+    return @conversation.assignee if @conversation.assignee.present?
+
+    first_admin = @inbox.account.administrators.first
+    return first_admin if first_admin.present?
+
+    @inbox.account.users.first
+  end
+
+  def extract_echo_content(echo)
+    echo.dig(:text, :body) || echo.dig('text', 'body') ||
+      echo.dig(:button, :text) || echo.dig('button', 'text') ||
+      echo.dig(:interactive, :button_reply, :title) || echo.dig('interactive', 'button_reply', 'title') ||
+      echo.dig(:interactive, :list_reply, :title) || echo.dig('interactive', 'list_reply', 'title')
+  end
+
+  def attach_echo_files(message, echo)
+    echo_type = echo[:type] || echo['type']
+    attachment_payload = echo[echo_type.to_sym] || echo[echo_type]
+    return unless attachment_payload
+
+    message.content ||= attachment_payload[:caption] || attachment_payload['caption']
+
+    attachment_file = download_echo_attachment_file(attachment_payload)
+    return if attachment_file.blank?
+
+    message.attachments.new(
+      account_id: message.account_id,
+      file_type: file_content_type(echo_type),
+      file: {
+        io: attachment_file,
+        filename: attachment_file.original_filename,
+        content_type: attachment_file.content_type
+      }
+    )
   rescue StandardError => e
-    Rails.logger.error "Error while forwarding smb_message_echoes to webhook: #{e.message}"
+    Rails.logger.error "Error attaching echo file: #{e.message}"
+  end
+
+  def download_echo_attachment_file(attachment_payload)
+    media_id = attachment_payload[:id] || attachment_payload['id']
+    return if media_id.blank?
+
+    if inbox.channel.provider == 'whatsapp_cloud'
+      phone_number_id = inbox.channel.provider_config['phone_number_id']
+      media_api_url = inbox.channel.media_url(media_id, phone_number_id)
+      
+      url_response = HTTParty.get(
+        media_api_url,
+        headers: inbox.channel.api_headers
+      )
+      
+      if url_response.unauthorized?
+        inbox.channel.authorization_error!
+        return
+      end
+      
+      return unless url_response.success?
+      
+      parsed_response = url_response.parsed_response
+      media_download_url = parsed_response['url']
+      return unless media_download_url
+      
+      Down.download(media_download_url, headers: inbox.channel.api_headers)
+    else
+      Down.download(inbox.channel.media_url(media_id), headers: inbox.channel.api_headers)
+    end
+  rescue Down::Error => e
+    Rails.logger.error "WhatsApp echo media download failed for media_id #{media_id}: #{e.message}"
+    nil
+  end
+
+  def attach_echo_location(message, echo)
+    location = echo['location'] || echo[:location]
+    return unless location
+
+    location_name = location['name'] ? "#{location['name']}, #{location['address']}" : ''
+    message.attachments.new(
+      account_id: message.account_id,
+      file_type: file_content_type('location'),
+      coordinates_lat: location['latitude'],
+      coordinates_long: location['longitude'],
+      fallback_title: location_name,
+      external_url: location['url']
+    )
+  end
+
+  def find_or_create_conversation_for_echo(contact_inbox)
+    conversation = if inbox.lock_to_single_conversation
+                     contact_inbox.conversations.last
+                   else
+                     contact_inbox.conversations.where.not(status: :resolved).last
+                   end
+
+    return conversation if conversation
+
+    Conversation.create!(
+      account_id: inbox.account_id,
+      inbox_id: inbox.id,
+      contact_id: contact_inbox.contact.id,
+      contact_inbox_id: contact_inbox.id
+    )
+  end
+
+  def set_conversation_for_echo(contact_inbox)
+    @contact_inbox = contact_inbox
+    @contact = contact_inbox.contact
+    set_conversation
+  end
+
+  def message_under_process_for_echo?(echo_id)
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: echo_id)
+    Redis::Alfred.get(key)
+  end
+
+  def cache_message_source_id_in_redis_for_echo(echo_id)
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: echo_id)
+    ::Redis::Alfred.setex(key, true, 300)
+  end
+
+  def clear_message_source_id_from_redis_for_echo(echo_id)
+    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: echo_id)
+    ::Redis::Alfred.delete(key)
   end
 end

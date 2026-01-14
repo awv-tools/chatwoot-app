@@ -1,6 +1,12 @@
 module Whatsapp::IncomingMessageServiceHelpers
   def download_attachment_file(attachment_payload)
-    Down.download(inbox.channel.media_url(attachment_payload[:id]), headers: inbox.channel.api_headers)
+    media_id = attachment_payload[:id] || attachment_payload['id']
+    return if media_id.blank?
+
+    Down.download(inbox.channel.media_url(media_id), headers: inbox.channel.api_headers)
+  rescue Down::Error => e
+    Rails.logger.error "WhatsApp media download failed for media_id #{media_id}: #{e.message}"
+    nil
   end
 
   def conversation_params

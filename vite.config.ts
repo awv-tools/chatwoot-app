@@ -48,7 +48,11 @@ export default defineConfig({
     host: process.env.VITE_RUBY_HOST || '0.0.0.0',
     port: Number(process.env.VITE_RUBY_PORT || 3036),
     strictPort: true,
-    allowedHosts: ['vite', 'localhost', '127.0.0.1'],
+    allowedHosts: [
+      'vite',
+      'localhost',
+      '127.0.0.1'
+    ],
     hmr: {
       host: process.env.VITE_RUBY_HMR_HOST || 'localhost',
       port: Number(process.env.VITE_RUBY_PORT || 3036),
@@ -75,24 +79,24 @@ export default defineConfig({
         // setting dir: isLibraryMode ? 'public/packs' : undefined will not work
         ...(isLibraryMode
           ? {
-              dir: 'public/packs',
-              entryFileNames: chunkInfo => {
-                if (chunkInfo.name === 'sdk') {
-                  return 'js/sdk.js';
-                }
-                return '[name].js';
-              },
-            }
+            dir: 'public/packs',
+            entryFileNames: chunkInfo => {
+              if (chunkInfo.name === 'sdk') {
+                return 'js/sdk.js';
+              }
+              return '[name].js';
+            },
+          }
           : {}),
         inlineDynamicImports: isLibraryMode, // Disable code-splitting for SDK
       },
     },
     lib: isLibraryMode
       ? {
-          entry: path.resolve(__dirname, './app/javascript/entrypoints/sdk.js'),
-          formats: ['iife'], // IIFE format for single file
-          name: 'sdk',
-        }
+        entry: path.resolve(__dirname, './app/javascript/entrypoints/sdk.js'),
+        formats: ['iife'], // IIFE format for single file
+        name: 'sdk',
+      }
       : undefined,
   },
   resolve: {

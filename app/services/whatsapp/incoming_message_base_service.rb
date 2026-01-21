@@ -302,9 +302,9 @@ class Whatsapp::IncomingMessageBaseService
     
     return if unprocessable_message_type?(echo_type)
 
-    conversation = find_or_create_conversation_for_echo(contact_inbox)
+    @conversation = find_or_create_conversation_for_echo(contact_inbox)
     
-    message = conversation.messages.build(
+    message = @conversation.messages.build(
       content: extract_echo_content(echo),
       account_id: inbox.account_id,
       inbox_id: inbox.id,
@@ -320,7 +320,10 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def echo_message_sender
-    return @conversation.assignee if @conversation.assignee.present?
+    return @conversation.assignee if @conversation&.assignee.present?
+
+    first_agent = @inbox.account.agents.first
+    return first_agent if first_agent.present?
 
     first_admin = @inbox.account.administrators.first
     return first_admin if first_admin.present?

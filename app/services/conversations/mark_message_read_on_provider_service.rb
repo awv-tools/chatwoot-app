@@ -9,10 +9,9 @@ class Conversations::MarkMessageReadOnProviderService
     return unless channel_supports_mark_read?
 
     last_incoming_message = find_last_incoming_message
-    return unless last_incoming_message&.source_id.present?
+    return unless last_incoming_message.present?
 
-    Rails.logger.info "🔵 [MARK MESSAGE READ] Starting - Channel: #{@channel.class}, Provider Service: #{provider_service.class}, Wamid: #{last_incoming_message.source_id}"
-    provider_service.mark_message_read(last_incoming_message.source_id)
+    provider_service.send(:mark_message_read, last_incoming_message.source_id)
   end
 
   private
@@ -20,11 +19,14 @@ class Conversations::MarkMessageReadOnProviderService
   def channel_supports_mark_read?
     return false unless @channel.respond_to?(:provider_service)
 
-    provider_service.respond_to?(:mark_message_read)
+    service = provider_service
+    service.respond_to?(:mark_message_read, true)
+  rescue StandardError
+    false
   end
 
   def find_last_incoming_message
-    @conversation.messages.incoming.reorder(created_at: :desc).first
+    @conversation.messages.incoming.where.not(source_id: nil).reorder(created_at: :desc).first
   end
 
   def provider_service

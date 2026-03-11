@@ -90,13 +90,13 @@ const virtualListRef = ref(null);
 
 provide('contextMenuElementTarget', virtualListRef);
 
-const activeAssigneeTab = ref(wootConstants.ASSIGNEE_TYPE.ALL);
-const activeStatus = ref(wootConstants.STATUS_TYPE.ALL);
+const activeAssigneeTab = ref(wootConstants.ASSIGNEE_TYPE.ME);
+const activeStatus = ref(wootConstants.STATUS_TYPE.OPEN);
 const activeSortBy = ref(wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC);
 const showAdvancedFilters = ref(false);
 const showOnlyUnread = ref(false);
 // Track the last unread count to detect if we're stuck in a loop
-const lastUnreadCountBeforeLoad = ref(0);
+const lastUnreadCountBeforeLoad = ref(-1);
 // chatsOnView is to store the chats that are currently visible on the screen,
 // which mirrors the conversationList.
 const chatsOnView = ref([]);
@@ -196,7 +196,32 @@ const userPermissions = computed(() => {
   return getUserPermissions(currentUser.value, currentAccountId.value);
 });
 
+const baseFilters = computed(() => ({
+  inboxId: props.conversationInbox ? props.conversationInbox : undefined,
+  assigneeType: activeAssigneeTab.value,
+  status: activeStatus.value,
+  sortBy: activeSortBy.value,
+  labels: props.label ? [props.label] : undefined,
+  teamId: props.teamId || undefined,
+  conversationType: props.conversationType || undefined,
+}));
+
+const unreadCountsByAssignee = computed(() => {
+  const filters = baseFilters.value;
+  return {
+    mineCount: mineChatsList.value(filters).filter(c => c.unread_count > 0)
+      .length,
+    unAssignedCount: unAssignedChatsList
+      .value(filters)
+      .filter(c => c.unread_count > 0).length,
+    allCount: allChatList.value(filters).filter(c => c.unread_count > 0).length,
+  };
+});
+
 const assigneeTabItems = computed(() => {
+  const counts = showOnlyUnread.value
+    ? unreadCountsByAssignee.value
+    : conversationStats.value;
   return filterItemsByPermission(
     ASSIGNEE_TYPE_TAB_PERMISSIONS,
     userPermissions.value,
@@ -204,7 +229,7 @@ const assigneeTabItems = computed(() => {
   ).map(({ key, count: countKey }) => ({
     key,
     name: t(`CHAT_LIST.ASSIGNEE_TYPE_TABS.${key}`),
-    count: conversationStats.value[countKey] || 0,
+    count: counts[countKey] || 0,
   }));
 });
 
@@ -382,7 +407,7 @@ const uniqueInboxes = computed(() => {
 function setFiltersFromUISettings() {
   const { conversations_filter_by: filterBy = {} } = uiSettings.value;
   const { status, order_by: orderBy } = filterBy;
-  activeStatus.value = status || wootConstants.STATUS_TYPE.ALL;
+  activeStatus.value = status || wootConstants.STATUS_TYPE.OPEN;
   activeSortBy.value = Object.values(wootConstants.SORT_BY_TYPE).includes(
     orderBy
   )
@@ -579,7 +604,7 @@ function resetAndFetchData() {
   store.dispatch('emptyAllConversations');
   store.dispatch('clearConversationFilters');
   // Reset unread count tracker when resetting data
-  lastUnreadCountBeforeLoad.value = 0;
+  lastUnreadCountBeforeLoad.value = -1;
   if (hasActiveFolders.value) {
     const payload = activeFolder.value.query;
     fetchSavedFilteredConversations(payload);
@@ -605,7 +630,7 @@ function loadMoreConversations() {
     // reached all available unread conversations, so stop loading
     // This prevents infinite loops when all remaining pages have no unread conversations
     if (
-      lastUnreadCountBeforeLoad.value > 0 &&
+      lastUnreadCountBeforeLoad.value !== -1 &&
       currentUnreadCount === lastUnreadCountBeforeLoad.value
     ) {
       return;
@@ -918,7 +943,7 @@ watch(conversationFilters, (newVal, oldVal) => {
 
 watch(showOnlyUnread, () => {
   // Reset unread count tracker when filter is toggled
-  lastUnreadCountBeforeLoad.value = 0;
+  lastUnreadCountBeforeLoad.value = -1;
 });
 </script>
 

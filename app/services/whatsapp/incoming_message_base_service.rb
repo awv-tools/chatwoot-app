@@ -212,8 +212,8 @@ class Whatsapp::IncomingMessageBaseService
     @message.additional_attributes['interactive'] = interactive_data
   end
 
-  def create_message(message)
-    message_id = message[:id] || message['id']
+  def create_message(message, source_id: nil)
+    message_id = source_id || message[:id] || message['id']
     @message = @conversation.messages.build(
       content: message_content(message),
       account_id: @inbox.account_id,

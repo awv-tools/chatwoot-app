@@ -92,6 +92,7 @@ class Whatsapp::IncomingMessageBaseService
       create_message(contact)
       attach_contact(contact)
       attach_referral_data(message)
+      attach_interactive_data(message)
       @message.save!
     end
   end
@@ -101,6 +102,7 @@ class Whatsapp::IncomingMessageBaseService
     attach_files
     attach_location if message_type == 'location'
     attach_referral_data(message)
+    attach_interactive_data(message)
     @message.save!
   end
 
@@ -188,11 +190,22 @@ class Whatsapp::IncomingMessageBaseService
     # Normalize ad_attribution_details to referral if needed
     # Check both string and symbol keys since webhook data comes as JSON (strings)
     referral_data = message.dig(:referral) || message.dig('referral') || message.dig(:ad_attribution_details) || message.dig('ad_attribution_details')
-    
+
     return unless referral_data.present?
 
     @message.additional_attributes ||= {}
     @message.additional_attributes['referral'] = referral_data
+  end
+
+  def attach_interactive_data(message)
+    # Capture interactive replies (list_reply, button_reply, etc.)
+    # Check both string and symbol keys since webhook data comes as JSON (strings)
+    interactive_data = message.dig(:interactive) || message.dig('interactive')
+
+    return unless interactive_data.present?
+
+    @message.additional_attributes ||= {}
+    @message.additional_attributes['interactive'] = interactive_data
   end
 
   def create_message(message)

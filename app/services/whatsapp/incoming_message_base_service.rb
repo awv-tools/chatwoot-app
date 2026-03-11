@@ -4,7 +4,7 @@
 class Whatsapp::IncomingMessageBaseService
   include ::Whatsapp::IncomingMessageServiceHelpers
 
-  pattr_initialize [:inbox!, :params!]
+  pattr_initialize [:inbox!, :params!, :outgoing_echo]
 
   def perform
     processed_params
@@ -20,8 +20,13 @@ class Whatsapp::IncomingMessageBaseService
     elsif message_echoes.present?
       process_message_echoes
     else
-      Rails.logger.warn "WhatsApp webhook received but no processable content found (statuses, messages, or message_echoes/smb_message_echoes)"
+      Rails.logger.warn 'WhatsApp webhook received but no processable content found (statuses, messages, or message_echoes/smb_message_echoes)'
     end
+  end
+
+  # Returns messages array for both regular messages and echo events
+  def messages_data
+    @processed_params&.dig(:messages) || @processed_params&.dig(:message_echoes)
   end
 
   private
@@ -39,14 +44,12 @@ class Whatsapp::IncomingMessageBaseService
     message_id = first_message&.[](:id) || first_message&.[]('id')
     return if find_message_by_source_id(message_id) || message_under_process?
 
-    cache_message_source_id_in_redis
     set_contact
     return unless @contact
 
     ActiveRecord::Base.transaction do
       set_conversation
       create_messages
-      clear_message_source_id_from_redis
     end
   end
 
@@ -89,7 +92,8 @@ class Whatsapp::IncomingMessageBaseService
 
   def create_contact_messages(message)
     message['contacts'].each do |contact|
-      create_message(contact)
+      # Pass source_id from parent message since contact objects don't have :id
+      create_message(contact, source_id: message[:id])
       attach_contact(contact)
       attach_referral_data(message)
       attach_interactive_data(message)
@@ -98,7 +102,7 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_regular_message(message)
-    create_message(message)
+    create_message(message, source_id: message[:id])
     attach_files
     attach_location if message_type == 'location'
     attach_referral_data(message)
@@ -119,9 +123,9 @@ class Whatsapp::IncomingMessageBaseService
     contact_inbox = ::ContactInboxWithContactBuilder.new(
       source_id: waid,
       inbox: inbox,
-      contact_attributes: { 
-        name: contact_params.dig(:profile, :name) || contact_params.dig('profile', 'name'), 
-        phone_number: "+#{from_number}" 
+      contact_attributes: {
+        name: contact_params.dig(:profile, :name) || contact_params.dig('profile', 'name'),
+        phone_number: "+#{from_number}"
       }
     ).perform
 
@@ -291,8 +295,8 @@ class Whatsapp::IncomingMessageBaseService
     contact_inbox = ::ContactInboxWithContactBuilder.new(
       source_id: waid,
       inbox: inbox,
-      contact_attributes: { 
-        phone_number: "+#{target_number}" 
+      contact_attributes: {
+        phone_number: "+#{target_number}"
       }
     ).perform
 
@@ -312,11 +316,11 @@ class Whatsapp::IncomingMessageBaseService
   def create_echo_message(echo, contact_inbox)
     echo_id = echo[:id] || echo['id']
     echo_type = echo[:type] || echo['type']
-    
+
     return if unprocessable_message_type?(echo_type)
 
     @conversation = find_or_create_conversation_for_echo(contact_inbox)
-    
+
     message = @conversation.messages.build(
       content: extract_echo_content(echo),
       account_id: inbox.account_id,
@@ -381,23 +385,23 @@ class Whatsapp::IncomingMessageBaseService
     if inbox.channel.provider == 'whatsapp_cloud'
       phone_number_id = inbox.channel.provider_config['phone_number_id']
       media_api_url = inbox.channel.media_url(media_id, phone_number_id)
-      
+
       url_response = HTTParty.get(
         media_api_url,
         headers: inbox.channel.api_headers
       )
-      
+
       if url_response.unauthorized?
         inbox.channel.authorization_error!
         return
       end
-      
+
       return unless url_response.success?
-      
+
       parsed_response = url_response.parsed_response
       media_download_url = parsed_response['url']
       return unless media_download_url
-      
+
       Down.download(media_download_url, headers: inbox.channel.api_headers)
     else
       Down.download(inbox.channel.media_url(media_id), headers: inbox.channel.api_headers)

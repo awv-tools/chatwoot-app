@@ -6,6 +6,10 @@ class Whatsapp::IncomingMessageBaseService
 
   pattr_initialize [:inbox!, :params!, :outgoing_echo]
 
+  RETRYABLE_ERROR_CODES = [131_026, 131_042].freeze
+  MAX_WHATSAPP_RETRIES = 2
+  WHATSAPP_RETRY_DELAY = 10.seconds
+
   def perform
     processed_params
 
@@ -76,8 +80,23 @@ class Whatsapp::IncomingMessageBaseService
       error_code = error[:code] || error['code']
       error_title = error[:title] || error['title']
       message.external_error = "#{error_code}: #{error_title}"
+      return if schedule_whatsapp_retry(message, error_code)
     end
     message.save!
+  end
+
+  def schedule_whatsapp_retry(message, error_code)
+    return false unless RETRYABLE_ERROR_CODES.include?(error_code.to_i)
+
+    retry_count = message.content_attributes.fetch(:whatsapp_auto_retry_count, 0).to_i
+    return false if retry_count >= MAX_WHATSAPP_RETRIES
+
+    message.content_attributes = message.content_attributes.merge(whatsapp_auto_retry_count: retry_count + 1)
+    message.source_id = nil
+    message.status = :sent
+    message.save!
+    SendReplyJob.set(wait: WHATSAPP_RETRY_DELAY).perform_later(message.id)
+    true
   end
 
   def create_messages

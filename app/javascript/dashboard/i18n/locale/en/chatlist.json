@@ -143,6 +143,7 @@
     "MESSAGE_READ": "Read",
     "SENDING": "Sending",
     "SHOW_UNREAD_ONLY": "Show unread conversations only",
-    "SHOW_ALL_CONVERSATIONS": "Show all conversations"
+    "SHOW_ALL_CONVERSATIONS": "Show all conversations",
+    "UNREAD_COUNT_OVERFLOW": "9+"
   }
 }

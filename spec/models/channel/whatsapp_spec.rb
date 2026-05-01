@@ -32,17 +32,82 @@ RSpec.describe Channel::Whatsapp do
     let(:channel) { build(:channel_whatsapp, provider: 'whatsapp_cloud', account: create(:account)) }
 
     it 'validates false when provider config is wrong' do
-      stub_request(:get, 'https://graph.facebook.com/v14.0//message_templates?access_token=test_key').to_return(status: 401)
+      stub_request(:get, 'https://graph.facebook.com/v24.0//message_templates?access_token=test_key').to_return(status: 401)
       expect(channel.save).to be(false)
     end
 
     it 'validates true when provider config is right' do
-      stub_request(:get, 'https://graph.facebook.com/v14.0//message_templates?access_token=test_key')
+      stub_request(:get, 'https://graph.facebook.com/v24.0//message_templates?access_token=test_key')
         .to_return(status: 200,
                    body: { data: [{
                      id: '123456789', name: 'test_template'
                    }] }.to_json)
       expect(channel.save).to be(true)
+    end
+  end
+
+  describe '#provider_service' do
+    let(:account) { create(:account) }
+
+    context 'when provider_config has gateway=zernio' do
+      let(:channel) do
+        create(:channel_whatsapp, account: account,
+                                  provider: 'whatsapp_cloud',
+                                  provider_config: { 'gateway' => 'zernio', 'account_id' => 'a' },
+                                  validate_provider_config: false, sync_templates: false)
+      end
+
+      it 'returns ZernioService regardless of provider value' do
+        expect(channel.provider_service).to be_a(Whatsapp::Providers::ZernioService)
+      end
+    end
+
+    context 'when provider is whatsapp_cloud without gateway' do
+      let(:channel) do
+        create(:channel_whatsapp, account: account, provider: 'whatsapp_cloud',
+                                  validate_provider_config: false, sync_templates: false)
+      end
+
+      it 'returns WhatsappCloudService' do
+        expect(channel.provider_service).to be_a(Whatsapp::Providers::WhatsappCloudService)
+      end
+    end
+
+    context 'when provider is default (360dialog)' do
+      let(:channel) do
+        create(:channel_whatsapp, account: account, validate_provider_config: false, sync_templates: false)
+      end
+
+      it 'returns Whatsapp360DialogService' do
+        expect(channel.provider_service).to be_a(Whatsapp::Providers::Whatsapp360DialogService)
+      end
+    end
+  end
+
+  describe 'zernio gateway webhook guards' do
+    let(:account) { create(:account) }
+    let(:channel) do
+      create(:channel_whatsapp, account: account, provider: 'whatsapp_cloud',
+                                provider_config: { 'gateway' => 'zernio', 'account_id' => 'a' },
+                                validate_provider_config: false, sync_templates: false)
+    end
+
+    it 'should_auto_setup_webhooks? returns false' do
+      expect(channel.send(:should_auto_setup_webhooks?)).to be(false)
+    end
+
+    it 'setup_webhooks does not invoke WebhookSetupService' do
+      expect(Whatsapp::WebhookSetupService).not_to receive(:new)
+      channel.setup_webhooks
+    end
+
+    it 'teardown_webhooks does not invoke WebhookTeardownService' do
+      expect(Whatsapp::WebhookTeardownService).not_to receive(:new)
+      channel.send(:teardown_webhooks)
+    end
+
+    it 'does not generate webhook_verify_token' do
+      expect(channel.provider_config).not_to have_key('webhook_verify_token')
     end
   end
 

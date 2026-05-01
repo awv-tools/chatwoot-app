@@ -468,6 +468,8 @@ Rails.application.routes.draw do
               get :grouped_conversation_metrics
             end
           end
+
+          post 'zernio/authorize', to: 'zernio#authorize'
         end
       end
     end
@@ -574,6 +576,7 @@ Rails.application.routes.draw do
   post 'webhooks/sms/:phone_number', to: 'webhooks/sms#process_payload'
   get 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#verify'
   post 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#process_payload'
+  post 'webhooks/zernio', to: 'webhooks/zernio#process_payload'
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
@@ -601,6 +604,8 @@ Rails.application.routes.draw do
       post 'voice/conference_status/:phone', to: 'voice#conference_status', as: :voice_conference_status
     end
   end
+
+  get 'zernio/callback', to: 'zernio_callback#show'
 
   get 'microsoft/callback', to: 'microsoft/callbacks#show'
   get 'google/callback', to: 'google/callbacks#show'

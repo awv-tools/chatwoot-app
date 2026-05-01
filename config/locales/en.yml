@@ -114,6 +114,8 @@ en:
       reauthorization:
         generic: 'Failed to reauthorize WhatsApp. Please try again.'
         not_supported: 'Reauthorization is not supported for this type of WhatsApp channel.'
+      zernio:
+        missing_conversation_id: 'Conversation not yet established with the WhatsApp gateway. Send an approved template to start the conversation.'
     inboxes:
       imap:
         socket_error: Please check the network connection, IMAP address and try again.

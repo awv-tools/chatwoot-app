@@ -11,6 +11,7 @@ import { required } from '@vuelidate/validators';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import TextArea from 'next/textarea/TextArea.vue';
 import WhatsappReauthorize from '../channels/whatsapp/Reauthorize.vue';
+import WhatsappZernioReauthorize from '../channels/whatsapp/ZernioReauthorize.vue';
 import { sanitizeAllowedDomains } from 'dashboard/helper/URLHelper';
 
 export default {
@@ -23,6 +24,7 @@ export default {
     NextButton,
     TextArea,
     WhatsappReauthorize,
+    WhatsappZernioReauthorize,
   },
   mixins: [inboxMixin],
   props: {
@@ -52,6 +54,20 @@ export default {
   computed: {
     isEmbeddedSignupWhatsApp() {
       return this.inbox.provider_config?.source === 'embedded_signup';
+    },
+    isZernioGatewayWhatsApp() {
+      // Already migrated: provider_config explicitly tagged.
+      return this.inbox.provider_config?.gateway === 'zernio';
+    },
+    shouldReconfigureViaZernio() {
+      // Either already on Zernio, or the operator has Zernio enabled globally —
+      // in that case any existing embedded_signup inbox should migrate via Zernio
+      // when the customer clicks Reconfigure (instead of going back to Meta direct).
+      return (
+        this.isZernioGatewayWhatsApp ||
+        (window.chatwootConfig?.zernioEnabled === true &&
+          this.isEmbeddedSignupWhatsApp)
+      );
     },
     whatsappAppId() {
       return window.chatwootConfig?.whatsappAppId;
@@ -167,7 +183,9 @@ export default {
       }
     },
     async handleReconfigure() {
-      if (this.$refs.whatsappReauth) {
+      if (this.shouldReconfigureViaZernio && this.$refs.zernioReauth) {
+        await this.$refs.zernioReauth.requestAuthorization();
+      } else if (this.$refs.whatsappReauth) {
         await this.$refs.whatsappReauth.requestAuthorization();
       }
     },
@@ -377,8 +395,26 @@ export default {
   </div>
   <div v-else-if="isAWhatsAppChannel && !isATwilioChannel">
     <div v-if="inbox.provider_config">
+      <!-- Zernio Gateway Section (transparent — copy stays as Embedded Signup).
+           Triggers when inbox is already on Zernio OR when ZERNIO_ENABLED=true
+           and the inbox originated from Embedded Signup (migration path). -->
+      <template v-if="shouldReconfigureViaZernio">
+        <SettingsFieldSection
+          :label="
+            $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_TITLE')
+          "
+          :help-text="`${$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_SUBHEADER')} ${$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_DESCRIPTION')}`"
+        >
+          <div class="flex flex-col gap-1 items-start">
+            <NextButton @click="handleReconfigure">
+              {{ $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_RECONFIGURE_BUTTON') }}
+            </NextButton>
+          </div>
+        </SettingsFieldSection>
+      </template>
+
       <!-- Embedded Signup Section -->
-      <template v-if="isEmbeddedSignupWhatsApp">
+      <template v-else-if="isEmbeddedSignupWhatsApp">
         <SettingsFieldSection
           v-if="whatsappAppId"
           :label="
@@ -454,8 +490,14 @@ export default {
       </SettingsFieldSection>
     </div>
     <WhatsappReauthorize
-      v-if="isEmbeddedSignupWhatsApp"
+      v-if="isEmbeddedSignupWhatsApp && !shouldReconfigureViaZernio"
       ref="whatsappReauth"
+      :inbox="inbox"
+      class="hidden"
+    />
+    <WhatsappZernioReauthorize
+      v-if="shouldReconfigureViaZernio"
+      ref="zernioReauth"
       :inbox="inbox"
       class="hidden"
     />

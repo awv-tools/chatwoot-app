@@ -16,6 +16,16 @@ class WhatsappChannel extends ApiClient {
       inbox_id: inboxId,
     });
   }
+
+  authorizeZernio({ inboxId, inboxName } = {}) {
+    return axios.post(
+      `/api/v2/accounts/${this.accountIdFromRoute}/zernio/authorize`,
+      {
+        inbox_id: inboxId,
+        inbox_name: inboxName,
+      }
+    );
+  }
 }
 
 export default new WhatsappChannel();

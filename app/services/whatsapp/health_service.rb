@@ -8,6 +8,8 @@ class Whatsapp::HealthService
   end
 
   def fetch_health_status
+    return fetch_zernio_health_data if @channel&.zernio_gateway?
+
     validate_channel!
     fetch_phone_health_data
   end
@@ -18,6 +20,46 @@ class Whatsapp::HealthService
     raise ArgumentError, 'Channel is required' if @channel.blank?
     raise ArgumentError, 'API key is missing' if @access_token.blank?
     raise ArgumentError, 'Phone number ID is missing' if @channel.provider_config['phone_number_id'].blank?
+  end
+
+  def fetch_zernio_health_data
+    account_id = @channel.provider_config['account_id']
+    raise ArgumentError, 'Zernio account_id is missing' if account_id.blank?
+
+    base = ENV.fetch('ZERNIO_BASE_URL', 'https://zernio.com/api')
+    response = HTTParty.get(
+      "#{base}/v1/accounts/#{account_id}/health",
+      Whatsapp::Providers::ZernioService.request_options(
+        headers: { 'Authorization' => "Bearer #{ENV.fetch('ZERNIO_API_KEY', '')}" }
+      )
+    )
+
+    unless response.success?
+      Rails.logger.error "[WHATSAPP HEALTH][ZERNIO] HTTP #{response.code}: #{response.body.to_s[0..300]}"
+      raise "Zernio health request failed: #{response.code}"
+    end
+
+    format_zernio_health(response.parsed_response)
+  end
+
+  # Map Zernio's health response to a shape compatible with what the existing
+  # frontend renders. Zernio-specific fields (status, tokenStatus, issues,
+  # recommendations) are passed through as-is for richer UI when available.
+  def format_zernio_health(data)
+    return {} unless data.is_a?(Hash)
+
+    {
+      id: data['accountId'],
+      display_phone_number: data['username'],
+      verified_name: data['displayName'],
+      platform_type: data['platform'],
+      status: data['status'],
+      token_status: data['tokenStatus'],
+      permissions: data['permissions'],
+      issues: data['issues'],
+      recommendations: data['recommendations'],
+      gateway: 'zernio'
+    }
   end
 
   def fetch_phone_health_data

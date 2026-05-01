@@ -6,6 +6,7 @@ import Twilio from './Twilio.vue';
 import ThreeSixtyDialogWhatsapp from './360DialogWhatsapp.vue';
 import CloudWhatsapp from './CloudWhatsapp.vue';
 import WhatsappEmbeddedSignup from './WhatsappEmbeddedSignup.vue';
+import WhatsappZernioSignup from './WhatsappZernioSignup.vue';
 import ChannelSelector from 'dashboard/components/ChannelSelector.vue';
 
 const route = useRoute();
@@ -27,6 +28,10 @@ const hasWhatsappAppId = computed(() => {
     window.chatwootConfig.whatsappAppId !== 'none'
   );
 });
+
+const isZernioEnabled = computed(
+  () => window.chatwootConfig?.zernioEnabled === true
+);
 
 const selectedProvider = computed(() => route.query.provider);
 
@@ -95,9 +100,16 @@ const handleManualLinkClick = () => {
 
     <div v-else-if="showConfiguration">
       <div class="px-6 py-5 rounded-2xl border border-n-weak">
+        <!-- Zernio gateway takes precedence when enabled (transparent swap) -->
+        <div
+          v-if="isZernioEnabled && selectedProvider === PROVIDER_TYPES.WHATSAPP"
+        >
+          <WhatsappZernioSignup />
+        </div>
+
         <!-- Show embedded signup if app ID is configured -->
         <div
-          v-if="
+          v-else-if="
             hasWhatsappAppId && selectedProvider === PROVIDER_TYPES.WHATSAPP
           "
         >

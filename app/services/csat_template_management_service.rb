@@ -55,8 +55,21 @@ class CsatTemplateManagementService
   end
 
   def create_whatsapp_template(template_params)
+    return zernio_csat_unsupported if zernio_gateway_inbox?
+
     template_config = build_template_config(template_params)
     Whatsapp::CsatTemplateService.new(@inbox.channel).create_template(template_config)
+  end
+
+  def zernio_gateway_inbox?
+    @inbox.channel.is_a?(Channel::Whatsapp) && @inbox.channel.zernio_gateway?
+  end
+
+  # CSAT template creation/deletion for Zernio gateway is not implemented yet.
+  # Skipping cleanly so the rest of the inbox features keep working.
+  def zernio_csat_unsupported
+    Rails.logger.warn '[CSAT] Skipping CSAT template ops for Zernio gateway (not implemented yet)'
+    { success: false, service_error: 'CSAT templates are not yet available for this WhatsApp gateway.' }
   end
 
   def build_template_config(template_params)
@@ -129,6 +142,8 @@ class CsatTemplateManagementService
   end
 
   def get_whatsapp_template_status(template)
+    return { template_exists: false, error: 'Not supported on this gateway' } if zernio_gateway_inbox?
+
     template_name = template['name'] || CsatTemplateNameService.csat_template_name(@inbox.id)
     status_result = Whatsapp::CsatTemplateService.new(@inbox.channel).get_template_status(template_name)
     return { template_exists: false, error: 'Template not found' } unless status_result.is_a?(Hash)
@@ -179,6 +194,8 @@ class CsatTemplateManagementService
   end
 
   def delete_existing_whatsapp_template(template)
+    return true if zernio_gateway_inbox?
+
     template_name = template['name']
     return true if template_name.blank?
 

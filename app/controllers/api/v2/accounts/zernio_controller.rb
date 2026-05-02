@@ -13,7 +13,7 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
       inbox_id: params[:inbox_id],
       profile_id: profile_id
     }
-    # Rails.cache is :null_store in dev — use Redis directly so the callback can read it.
+    # Rails.cache is :null_store in dev — use Redis directly.
     ::Redis::Alfred.setex(cache_key(state), payload.to_json, STATE_TTL.to_i)
 
     redirect_url = "#{ENV.fetch('FRONTEND_URL', '')}/zernio/callback?cw_state=#{state}"
@@ -29,16 +29,7 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
 
   private
 
-  # On reauth (inbox_id present): reuse the channel's existing profile_id —
-  # the profile already exists on Zernio's side, only the WhatsApp connection
-  # needs to be re-established. If the channel was migrated from a non-Zernio
-  # source and has no profile_id yet, fall back to creating a fresh one
-  # named after the channel's phone number.
-  #
-  # On new inbox (no inbox_id): create a fresh Zernio profile. 1 profile == 1
-  # WhatsApp connection on Zernio's side, so a new inbox always means a new
-  # profile. The profile_id is held in Redis state and only persisted to
-  # provider_config when the OAuth callback succeeds.
+  # Reauth reuses the channel's profile_id; new inbox creates a fresh profile.
   def resolve_profile_id
     if params[:inbox_id].present?
       channel = Current.account.inboxes.find(params[:inbox_id]).channel
@@ -49,9 +40,7 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
     end
   end
 
-  # Created before OAuth, so we don't have phone yet. Account name is enough
-  # to identify the customer in Zernio's dashboard during the OAuth window;
-  # the callback rewrites this to the final "{Account} -> WhatsApp (+phone)".
+  # Used before OAuth (no phone yet); callback rewrites to final "{Account} -> WhatsApp (+phone)".
   def temporary_profile_name
     account_name = Current.account.name.presence
     account_name ? "#{account_name} -> WhatsApp" : 'WhatsApp'

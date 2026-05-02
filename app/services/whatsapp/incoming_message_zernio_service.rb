@@ -1,14 +1,4 @@
-# Translates Zernio webhook payloads into the Cloud-API shape that
-# Whatsapp::IncomingMessageBaseService already understands.
-#
-# Zernio events handled:
-# - message.received  → messages + contacts (incoming)
-# - message.sent      → message_echoes (outgoing echo, set outgoing_echo: true on construction)
-# - message.delivered / message.read / message.failed → statuses
-#
-# After the base service creates/finds the conversation we persist the Zernio
-# conversationId on Conversation#additional_attributes so outbound sends can
-# reuse it (see Whatsapp::Providers::ZernioService#send_message).
+# Translates Zernio webhook payloads into Cloud-API shape for IncomingMessageBaseService.
 class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseService
   STATUS_BY_EVENT = {
     'message.delivered' => 'delivered',
@@ -53,19 +43,7 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     }
   end
 
-  # Cloud API delivers Click-To-WhatsApp ad attribution inline on the message
-  # (messages[0].referral). Zernio surfaces it on conversation.metadata with
-  # ctwa_-prefixed keys instead. We translate to the Cloud shape so downstream
-  # (analytics, automations, reports reading additional_attributes['referral'])
-  # treats it identically across providers.
-  #
-  # Field mapping (Zernio → Cloud):
-  #   ctwa_clid        → ctwa_clid          (same)
-  #   ctwa_source_url  → source_url
-  #   ctwa_source_id   → source_id
-  #   ctwa_source_type → source_type
-  #   ctwa_headline    → headline
-  #   ctwa_captured_at → captured_at        (Zernio-specific, kept for traceability)
+  # Maps Zernio's conversation.metadata.ctwa_* keys to Cloud's message.referral shape.
   def extract_ctwa_referral
     metadata = params.dig(:conversation, :metadata)
     return nil unless metadata.is_a?(Hash) && metadata[:ctwa_clid].present?
@@ -89,17 +67,7 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     { 'message_echoes' => [echo] }
   end
 
-  # Builds a Cloud-API-shaped message object from a Zernio message.
-  # When attachments are present, type is the attachment kind and the text
-  # (if any) becomes a caption inside the type payload.
-  #
-  # We use the WAMID (msg.platformMessageId) as the identifier because:
-  #   1. ZernioService#send_message gets data.messageId in the response which
-  #      IS the WAMID — that's what we store as source_id at send time. So
-  #      using wamid here makes the find_message_by_source_id dedup match.
-  #   2. WAMID is the stable WhatsApp-side identifier; status events also
-  #      reference it consistently.
-  # msg.id (Zernio's internal mongo id) is informational only.
+  # Uses WAMID (platformMessageId) as id so it matches source_id stored on send (echo dedup).
   def build_message_object(msg)
     sender = msg[:sender] || {}
     base = {
@@ -108,9 +76,6 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
       'timestamp' => msg[:sentAt]
     }
 
-    # Reply / quote: Zernio surfaces the quoted wamid on the top-level
-    # `metadata.quotedMessageId`. Cloud expects it inline as `message.context.id`.
-    # Translate so process_in_reply_to in the base service picks it up.
     quoted_wamid = params.dig(:metadata, :quotedMessageId)
     base['context'] = { 'id' => quoted_wamid } if quoted_wamid.present?
 
@@ -137,8 +102,6 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     [type, payload]
   end
 
-  # Zernio attachment.type values seen so far: image, video, audio, voice, sticker, file.
-  # Cloud API type names: image, video, audio, sticker, document.
   def map_attachment_type(zernio_type)
     case zernio_type.to_s.downcase
     when 'image' then 'image'
@@ -154,8 +117,6 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
 
     {
       'statuses' => [{
-        # Use WAMID (matches what we stored as source_id at send time —
-        # data.messageId in Zernio's send response is actually the wamid).
         'id' => msg[:platformMessageId],
         'status' => STATUS_BY_EVENT[params[:event]],
         'timestamp' => params[:statusAt] || params[:timestamp]
@@ -163,8 +124,7 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     }
   end
 
-  # Ensure zernio_conversation_id is stamped on the Chatwoot Conversation so
-  # outbound sends (Whatsapp::Providers::ZernioService) can target it.
+  # Stamp zernio_conversation_id on Conversation so outbound sends can target it.
   def set_conversation
     super
     return unless @conversation
@@ -179,16 +139,7 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     @conversation.save!
   end
 
-  # Zernio surfaces media via two URL flavours:
-  #   - Public temp URLs (host: media.zernio.com) — no auth, just download.
-  #   - API URLs (host: zernio.com/api/...) — require Bearer ZERNIO_API_KEY.
-  # We send the Bearer token whenever the URL is on the API host; sending it
-  # to public URLs is harmless but unnecessary, so we keep it scoped.
-  #
-  # Note: media downloads intentionally skip PROXY_URL — auditing focuses on
-  # outbound requests TO Zernio (send_message, templates, profile mgmt), not
-  # on incoming media. Routing downloads through MITM also tripped over the
-  # proxy CA cert without buying any debugging value.
+  # API-host URLs require Bearer ZERNIO_API_KEY; public media URLs need no auth.
   def download_attachment_file(attachment_payload)
     url = attachment_payload[:url] || attachment_payload['url']
     return if url.blank?
@@ -200,10 +151,12 @@ class Whatsapp::IncomingMessageZernioService < Whatsapp::IncomingMessageBaseServ
     nil
   end
 
-  # Echo attachments arrive on `message.sent` events. Base service has a
-  # Cloud-specific path (uses phone_number_id + Bearer); for Zernio we reuse
-  # the same download routine as inbound attachments.
   def download_echo_attachment_file(attachment_payload)
     download_attachment_file(attachment_payload)
+  end
+
+  # Echo via WhatsApp app: attribute to assignee, otherwise nil (renders as Bot).
+  def echo_message_sender
+    @conversation&.assignee
   end
 end

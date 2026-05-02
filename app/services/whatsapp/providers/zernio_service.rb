@@ -1,7 +1,5 @@
 class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
-  # Bootstrap calls (no channel yet) — used by the OAuth flow before a
-  # Channel::Whatsapp record exists. Profile creation is Zernio-specific
-  # (1 profile == 1 WhatsApp number); other providers don't have this concept.
+  # Bootstrap calls used by the OAuth flow before a Channel::Whatsapp exists.
   class << self
     def create_profile(name:)
       response = HTTParty.post(
@@ -24,10 +22,6 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       parsed.is_a?(Hash) ? parsed['authUrl'] : nil
     end
 
-    # Renames a profile post-OAuth so the Zernio dashboard shows a meaningful
-    # label including the connected phone. Caller is expected to rescue
-    # StandardError if it wants best-effort behaviour — this method raises on
-    # HTTP failure so tests can assert on it.
     def update_profile(id:, name:)
       response = HTTParty.patch(
         "#{api_base_path}/v1/profiles/#{id}",
@@ -49,11 +43,7 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       }
     end
 
-    # Optional HTTP proxy for Zernio requests only. Activated only when PROXY_URL
-    # is set and Rails is not running in production (Rails.env comes from
-    # RAILS_ENV/RACK_ENV). SSL verification is disabled because local MITM tools
-    # intercept with their own CA, which Ruby won't trust by default. Malformed
-    # URIs return {} silently — better to skip the proxy than to crash the request.
+    # Optional MITM proxy for Zernio requests; disabled in production.
     def http_options
       proxy = ENV.fetch('PROXY_URL', '')
       return {} if proxy.blank? || Rails.env.production?
@@ -95,11 +85,6 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     process_response(response, message)
   end
 
-  # Templates are sent through the same `/v1/inbox/conversations/:id/messages`
-  # endpoint as regular messages — the difference is the body shape, which
-  # mirrors Meta's Cloud API template object (name/language/components) wrapped
-  # in Zernio's snake_case envelope (profile_id/to/channel/from). The /broadcasts
-  # endpoint is for multi-recipient campaigns and is not the right semantic here.
   def send_template(_phone_number, template_info, message)
     @message = message
 
@@ -108,9 +93,13 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     request_body = {
       accountId: account_id,
       template: {
-        name: template_info[:name],
-        language: template_info[:lang_code],
-        components: template_info[:parameters] || []
+        elements: [
+          {
+            name: template_info[:name],
+            language: template_info[:lang_code],
+            components: template_info[:parameters] || []
+          }
+        ]
       }
     }
 
@@ -153,10 +142,6 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
   end
 
   def validate_provider_config?
-    # Channel-side validation is just structural — the actual auth happens at the
-    # Zernio gateway and is verified via the OAuth flow that produced the account_id.
-    # Hitting an account introspection endpoint here would couple model save to a
-    # remote round-trip and is not strictly necessary.
     account_id.present? && ENV.fetch('ZERNIO_API_KEY', '').present?
   end
 
@@ -168,11 +153,7 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     "#{api_base_path}/v1/media/#{media_id}"
   end
 
-  # Zernio response shape: { success: true, data: { messageId, conversationId, sentAt, message } }
-  # IMPORTANT: data.messageId here is the WAMID (Meta's platform message id),
-  # not Zernio's internal mongo id. The webhook payload exposes the same WAMID
-  # under message.platformMessageId — that is the field translate_*  uses for
-  # dedup, so the source_id stored on send matches what the echo carries.
+  # data.messageId is the WAMID, matching message.platformMessageId in webhooks (used for echo dedup).
   def process_response(response, message)
     parsed = response.parsed_response
     if response.success? && parsed.is_a?(Hash) && parsed['success']
@@ -187,17 +168,10 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
 
   private
 
-  # Hits Zernio's GET conversation messages endpoint. Genuine purpose is
-  # "fetch messages", but Zernio has no dedicated mark-as-read endpoint and
-  # this GET happens to also flag inbound messages as read on their side
-  # plus trigger the WhatsApp read receipt. Until they expose a real
-  # mark-read endpoint, MarkMessageReadOnProviderService calls this here
-  # specifically for that side effect.
+  # GET messages doubles as mark-as-read on Zernio (no dedicated endpoint). limit=1 since body is discarded.
   def fetch_conversation_messages(zernio_conv_id)
     return if zernio_conv_id.blank?
 
-    # limit=1: we only need the side effect (mark-as-read + WhatsApp receipt).
-    # The response body is discarded, so no point asking Zernio for more.
     HTTParty.get(
       "#{api_base_path}/v1/inbox/conversations/#{zernio_conv_id}/messages",
       request_options(headers: api_headers, query: { accountId: account_id, limit: 1 })
@@ -210,9 +184,6 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     self.class.request_options(options)
   end
 
-  # Zernio response for GET /v1/whatsapp/templates is documented as
-  # `data.templates` via the SDK. Handle both top-level and nested shapes
-  # to be resilient.
   def extract_templates(parsed)
     return nil unless parsed.is_a?(Hash)
 
@@ -304,9 +275,7 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       conversation.save! if conversation.changed?
     end
 
-    # Persist source_id and zernio_conversation_id on the message immediately —
-    # not waiting for the caller — so the webhook echo (which can arrive in ms)
-    # is correctly deduplicated via find_message_by_source_id.
+    # Stamp source_id immediately so webhook echo dedup works (echo can arrive in ms).
     changes = false
     message.additional_attributes ||= {}
     if conversation_id.present? && message.additional_attributes['zernio_conversation_id'] != conversation_id

@@ -1,10 +1,7 @@
 class Webhooks::ZernioController < ActionController::API
   before_action :verify_signature
 
-  # POST /webhooks/zernio
-  # Single static endpoint — Zernio webhook is configured once on their dashboard
-  # and all events from all connected accounts arrive here. The accountId in the
-  # payload body identifies which Channel::Whatsapp the event belongs to.
+  # POST /webhooks/zernio — single endpoint, accountId in payload routes to channel.
   def process_payload
     Webhooks::ZernioEventsJob.perform_later(params.to_unsafe_hash)
     head :created
@@ -12,11 +9,7 @@ class Webhooks::ZernioController < ActionController::API
 
   private
 
-  # HMAC-SHA256 over the raw body using ZERNIO_WEBHOOK_SECRET. Zernio sends the
-  # digest in the X-Zernio-Signature header. We use the raw body (not parsed
-  # params) because any reformatting changes byte order and breaks the digest.
-  # secure_compare guards against timing attacks. The secret is mandatory in
-  # all environments — without it the endpoint would accept forged webhooks.
+  # HMAC-SHA256 over raw body using ZERNIO_WEBHOOK_SECRET (mandatory).
   def verify_signature
     secret = ENV.fetch('ZERNIO_WEBHOOK_SECRET', '')
     return reject_webhook if secret.blank?

@@ -1,12 +1,5 @@
 class ZernioCallbackController < ApplicationController
-  # GET /zernio/callback
-  # Zernio OAuth callback (per docs):
-  #   ?connected=whatsapp&profileId=xxx&accountId=xxx&username=+1234567890
-  # Plus our own cw_state appended via the redirect_url we passed to Zernio
-  # (Zernio generates its own internal state and does not echo a state param back).
-  # No Meta credentials are returned — Zernio handles all Meta interaction internally.
-  # profile_id comes from the Redis state (created/looked up at authorize time),
-  # not from the callback query — keeps it as the single source of truth.
+  # GET /zernio/callback?connected=whatsapp&profileId=…&accountId=…&username=…&cw_state=…
   def show
     state = params[:cw_state]
     cache_key = "zernio:oauth:state:#{state}"
@@ -25,9 +18,6 @@ class ZernioCallbackController < ApplicationController
     is_reauth = cached[:inbox_id].present?
     final_name = build_final_name(cached[:account_name], phone)
 
-    # Best-effort rename on Zernio side — we already have the phone now, so the
-    # profile gets a stable, human-readable label. Skipped on reauth: profile
-    # already exists with whatever name the operator may have edited manually.
     rename_zernio_profile(cached[:profile_id], final_name) unless is_reauth
 
     channel = Whatsapp::Zernio::ChannelCreationService.new(
@@ -47,8 +37,7 @@ class ZernioCallbackController < ApplicationController
 
   private
 
-  # Zernio returns the phone with formatting (e.g. "+55 81 7301-8420").
-  # Strip everything except digits + leading "+" so we land on E.164.
+  # Zernio returns the phone formatted (e.g. "+55 81 7301-8420"); coerce to E.164.
   def normalize_phone(phone)
     return phone if phone.blank?
 
@@ -61,9 +50,6 @@ class ZernioCallbackController < ApplicationController
     account_name ? "#{account_name} -> WhatsApp (#{phone})" : "WhatsApp (#{phone})"
   end
 
-  # Best-effort: failing to rename should not block channel creation. The inbox
-  # in Chatwoot is created either way; Zernio profile keeps the temporary name
-  # if the rename failed.
   def rename_zernio_profile(profile_id, name)
     return if profile_id.blank?
 

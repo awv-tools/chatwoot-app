@@ -64,7 +64,9 @@ describe Whatsapp::Providers::ZernioService do
       stubbed = stub_request(:post, "https://api.zernio.com/v1/inbox/conversations/#{zernio_conversation_id}/messages")
                 .with(body: hash_including(
                   'accountId' => 'zacct_1',
-                  'template' => hash_including('name' => 'hello', 'language' => 'pt_BR')
+                  'template' => hash_including(
+                    'elements' => [hash_including('name' => 'hello', 'language' => 'pt_BR')]
+                  )
                 ))
                 .to_return(
                   status: 200,

@@ -19,8 +19,6 @@ class Conversations::MarkMessageReadOnProviderService
 
   private
 
-  # Cloud-style: provider has a real mark-as-read endpoint. We pass the WAMID
-  # of the latest incoming message and the provider POSTs the read receipt.
   def mark_via_dedicated_endpoint
     last_incoming_message = find_last_incoming_message
     return unless last_incoming_message.present?
@@ -28,10 +26,7 @@ class Conversations::MarkMessageReadOnProviderService
     provider_service.send(:mark_message_read, last_incoming_message.source_id)
   end
 
-  # Zernio-style: provider has no mark-as-read endpoint, but their GET
-  # conversation-messages call has the side effect of marking inbound messages
-  # as read AND dispatching the WhatsApp read receipt. Until Zernio exposes a
-  # real endpoint we lean on this side effect here.
+  # Zernio: GET conversation messages doubles as mark-as-read + WhatsApp read receipt.
   def mark_via_fetch_side_effect
     zernio_conv_id = @conversation.additional_attributes&.dig('zernio_conversation_id')
     return if zernio_conv_id.blank?

@@ -16,16 +16,13 @@ class ZernioCallbackController < ApplicationController
     account = Account.find(cached[:account_id])
     phone = normalize_phone(params[:username])
     is_reauth = cached[:inbox_id].present?
-    final_name = build_final_name(cached[:account_name], phone)
-
-    rename_zernio_profile(cached[:profile_id], final_name) unless is_reauth
 
     channel = Whatsapp::Zernio::ChannelCreationService.new(
       account: account,
       phone_number: phone,
       account_id: params[:accountId],
       profile_id: cached[:profile_id],
-      inbox_name: is_reauth ? nil : final_name,
+      inbox_name: is_reauth ? nil : build_inbox_name(cached[:account_name], phone),
       inbox_id: cached[:inbox_id]
     ).perform
 
@@ -45,16 +42,8 @@ class ZernioCallbackController < ApplicationController
     digits.start_with?('+') ? digits : "+#{digits}"
   end
 
-  def build_final_name(account_name, phone)
+  def build_inbox_name(account_name, phone)
     account_name = account_name.presence
     account_name ? "#{account_name} -> WhatsApp (#{phone})" : "WhatsApp (#{phone})"
-  end
-
-  def rename_zernio_profile(profile_id, name)
-    return if profile_id.blank?
-
-    Whatsapp::Providers::ZernioService.update_profile(id: profile_id, name: name)
-  rescue StandardError => e
-    Rails.logger.warn "[WHATSAPP][ZERNIO] profile rename failed (id=#{profile_id}): #{e.message}"
   end
 end

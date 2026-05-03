@@ -29,21 +29,21 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
 
   private
 
-  # Reauth reuses the channel's profile_id; new inbox creates a fresh profile.
+  # Reauth reusa o profile_id do canal; novo inbox (e Cloud→Zernio fallback) usam find_or_create por prefix.
   def resolve_profile_id
     if params[:inbox_id].present?
       channel = Current.account.inboxes.find(params[:inbox_id]).channel
       channel.provider_config['profile_id'].presence ||
-        Whatsapp::Providers::ZernioService.create_profile(name: channel.phone_number)
+        Whatsapp::Providers::ZernioService.find_or_create_profile(prefix: profile_name_prefix)
     else
-      Whatsapp::Providers::ZernioService.create_profile(name: params[:inbox_name].presence || temporary_profile_name)
+      Whatsapp::Providers::ZernioService.find_or_create_profile(prefix: profile_name_prefix)
     end
   end
 
-  # Used before OAuth (no phone yet); callback rewrites to final "{Account} -> WhatsApp (+phone)".
-  def temporary_profile_name
+  # Sem sufixo de canal — profile pode hospedar WA + IG + FB no futuro.
+  def profile_name_prefix
     account_name = Current.account.name.presence
-    account_name ? "#{account_name} -> WhatsApp" : 'WhatsApp'
+    account_name ? "#{account_name} -> Profile" : 'Profile'
   end
 
   def cache_key(state)

@@ -93,22 +93,22 @@ describe Whatsapp::Providers::ZernioService do
   end
 
   describe '.update_profile' do
-    it 'PATCHes /v1/profiles/:id with the new name' do
-      stubbed = stub_request(:patch, 'https://api.zernio.com/v1/profiles/zprof')
+    it 'PUTs /v1/profiles/:id with the new name' do
+      stubbed = stub_request(:put, 'https://api.zernio.com/v1/profiles/zprof')
                 .with(
-                  body: { name: 'Acme -> WhatsApp (+5511999)' }.to_json,
+                  body: { name: 'Acme -> Profile: zprof' }.to_json,
                   headers: { 'Authorization' => 'Bearer zkey' }
                 )
-                .to_return(status: 200, body: { profile: { _id: 'zprof', name: 'Acme -> WhatsApp (+5511999)' } }.to_json,
+                .to_return(status: 200, body: { profile: { _id: 'zprof', name: 'Acme -> Profile: zprof' } }.to_json,
                            headers: { 'Content-Type' => 'application/json' })
 
-      described_class.update_profile(id: 'zprof', name: 'Acme -> WhatsApp (+5511999)')
+      described_class.update_profile(id: 'zprof', name: 'Acme -> Profile: zprof')
 
       expect(stubbed).to have_been_requested
     end
 
     it 'raises when Zernio returns an error' do
-      stub_request(:patch, 'https://api.zernio.com/v1/profiles/zprof').to_return(status: 500)
+      stub_request(:put, 'https://api.zernio.com/v1/profiles/zprof').to_return(status: 500)
 
       expect { described_class.update_profile(id: 'zprof', name: 'x') }
         .to raise_error(/Zernio profile update failed/)

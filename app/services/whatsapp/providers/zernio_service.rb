@@ -23,13 +23,36 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     end
 
     def update_profile(id:, name:)
-      response = HTTParty.patch(
+      response = HTTParty.put(
         "#{api_base_path}/v1/profiles/#{id}",
         request_options(headers: api_headers, body: { name: name }.to_json)
       )
       raise "Zernio profile update failed (HTTP #{response.code})" unless response.success?
 
       response.parsed_response
+    end
+
+    def list_profiles
+      response = HTTParty.get(
+        "#{api_base_path}/v1/profiles",
+        request_options(headers: api_headers)
+      )
+      raise "Zernio profile list failed (HTTP #{response.code})" unless response.success?
+
+      response.parsed_response['profiles'] || []
+    end
+
+    # Reusa profile órfão (prefix match + sem canais conectados) ou cria novo. Após criar,
+    # PUT inclui o id no nome — final fica "{prefix}: {id}". Profile name é canal-agnóstico.
+    def find_or_create_profile(prefix:)
+      orphan = list_profiles.find do |p|
+        p['name'].to_s.start_with?(prefix) && p['accountUsernames'].to_a.empty?
+      end
+      return orphan['_id'] if orphan
+
+      id = create_profile(name: prefix)
+      update_profile(id: id, name: "#{prefix}: #{id}")
+      id
     end
 
     def api_base_path

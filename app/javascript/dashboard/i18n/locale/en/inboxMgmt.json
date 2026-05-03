@@ -687,11 +687,13 @@
           "AVAILABLE_WITHOUT_REVIEW": "Available Without Review",
           "REJECTED": "Rejected",
           "DECLINED": "Declined",
-          "NON_EXISTS": "Non exists"
+          "NON_EXISTS": "Non exists",
+          "UNKNOWN": "Unknown"
         },
         "MODES": {
           "SANDBOX": "Sandbox",
-          "LIVE": "Live"
+          "LIVE": "Live",
+          "UNKNOWN": "Unknown"
         }
       },
       "WEBHOOK": {

@@ -605,7 +605,8 @@ Rails.application.routes.draw do
     end
   end
 
-  get 'zernio/callback', to: 'zernio_callback#show'
+  # State como path segment porque o Zernio anexa params com '?' (em vez de '&'), corrompendo query string.
+  get 'zernio/callback/:state', to: 'zernio_callback#show'
 
   get 'microsoft/callback', to: 'microsoft/callbacks#show'
   get 'google/callback', to: 'google/callbacks#show'

@@ -16,7 +16,7 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
     # Rails.cache is :null_store in dev — use Redis directly.
     ::Redis::Alfred.setex(cache_key(state), payload.to_json, STATE_TTL.to_i)
 
-    redirect_url = "#{ENV.fetch('FRONTEND_URL', '')}/zernio/callback?cw_state=#{state}"
+    redirect_url = "#{ENV.fetch('FRONTEND_URL', '')}/zernio/callback/#{state}"
     auth_url = Whatsapp::Providers::ZernioService.request_auth_url(
       profile_id: profile_id,
       redirect_url: redirect_url

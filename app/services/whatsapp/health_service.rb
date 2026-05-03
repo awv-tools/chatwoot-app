@@ -26,38 +26,29 @@ class Whatsapp::HealthService
     account_id = @channel.provider_config['account_id']
     raise ArgumentError, 'Zernio account_id is missing' if account_id.blank?
 
-    base = ENV.fetch('ZERNIO_BASE_URL', 'https://zernio.com/api')
-    response = HTTParty.get(
-      "#{base}/v1/accounts/#{account_id}/health",
-      Whatsapp::Providers::ZernioService.request_options(
-        headers: { 'Authorization' => "Bearer #{ENV.fetch('ZERNIO_API_KEY', '')}" }
-      )
-    )
+    accounts = Whatsapp::Providers::ZernioService.list_accounts
+    account = accounts.find { |a| a['_id'] == account_id }
+    raise "Zernio account not found: #{account_id}" if account.blank?
 
-    unless response.success?
-      Rails.logger.error "[WHATSAPP HEALTH][ZERNIO] HTTP #{response.code}: #{response.body.to_s[0..300]}"
-      raise "Zernio health request failed: #{response.code}"
-    end
-
-    format_zernio_health(response.parsed_response)
+    format_zernio_health(account)
   end
 
-  # Map Zernio's health response to a shape compatible with what the existing
-  # frontend renders. Zernio-specific fields (status, tokenStatus, issues,
-  # recommendations) are passed through as-is for richer UI when available.
+  # Mapeia o account do Zernio (com metadata) pra shape esperada pelo front (campos snake_case do Cloud).
   def format_zernio_health(data)
     return {} unless data.is_a?(Hash)
 
+    metadata = data['metadata'] || {}
     {
-      id: data['accountId'],
-      display_phone_number: data['username'],
-      verified_name: data['displayName'],
+      id: data['_id'],
+      display_phone_number: metadata['displayPhoneNumber'] || data['username'],
+      verified_name: metadata['verifiedName'] || data['displayName'],
+      name_status: metadata['nameStatus'],
+      quality_rating: metadata['qualityRating'],
+      messaging_limit_tier: metadata['messagingLimitTier'],
+      account_mode: data['isActive'] ? 'LIVE' : 'SANDBOX',
       platform_type: data['platform'],
-      status: data['status'],
-      token_status: data['tokenStatus'],
       permissions: data['permissions'],
-      issues: data['issues'],
-      recommendations: data['recommendations'],
+      business_id: metadata['wabaId'],
       gateway: 'zernio'
     }
   end

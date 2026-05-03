@@ -22,6 +22,26 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       parsed.is_a?(Hash) ? parsed['authUrl'] : nil
     end
 
+    def fetch_pending_data(token:)
+      response = HTTParty.get(
+        "#{api_base_path}/v1/connect/pending-data",
+        request_options(headers: { 'Content-Type' => 'application/json' }, query: { token: token })
+      )
+      raise "Zernio fetch_pending_data failed (HTTP #{response.code}): #{response.body}" unless response.success?
+
+      response.parsed_response
+    end
+
+    def complete_connect(code:, state:, profile_id:, platform: 'whatsapp')
+      response = HTTParty.post(
+        "#{api_base_path}/v1/connect/#{platform}",
+        request_options(headers: api_headers, body: { code: code, state: state, profileId: profile_id }.to_json)
+      )
+      raise "Zernio complete_connect failed (HTTP #{response.code}): #{response.body}" unless response.success?
+
+      response.parsed_response
+    end
+
     def update_profile(id:, name:)
       response = HTTParty.put(
         "#{api_base_path}/v1/profiles/#{id}",
@@ -40,6 +60,16 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       raise "Zernio profile list failed (HTTP #{response.code})" unless response.success?
 
       response.parsed_response['profiles'] || []
+    end
+
+    def list_accounts
+      response = HTTParty.get(
+        "#{api_base_path}/v1/accounts",
+        request_options(headers: api_headers)
+      )
+      raise "Zernio account list failed (HTTP #{response.code})" unless response.success?
+
+      response.parsed_response['accounts'] || []
     end
 
     # Reusa profile órfão (prefix match + sem canais conectados) ou cria novo. Após criar,

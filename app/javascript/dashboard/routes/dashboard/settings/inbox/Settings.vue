@@ -363,6 +363,12 @@ export default {
   },
   mounted() {
     this.fetchSharedData();
+    if (this.$route.query.reauthorized === 'true') {
+      useAlert(this.$t('INBOX.REAUTHORIZE.SUCCESS'));
+      this.$router.replace({
+        query: { ...this.$route.query, reauthorized: undefined },
+      });
+    }
   },
   methods: {
     async copyWebhookSecret(value) {

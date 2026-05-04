@@ -129,6 +129,12 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       response.parsed_response
     end
 
+    # Toggle: when true, runtime goes Meta-direct (Cloud API + override webhook).
+    # When false (default), runtime goes through Zernio (send + receive).
+    def direct_meta_enabled?
+      ENV.fetch('ZERNIO_DIRECT_META', '') == 'true'
+    end
+
     def api_base_path
       ENV.fetch('ZERNIO_BASE_URL', 'https://zernio.com/api')
     end

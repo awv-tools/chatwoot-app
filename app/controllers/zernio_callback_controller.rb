@@ -1,22 +1,18 @@
 class ZernioCallbackController < ApplicationController
   STATE_TTL = 10.minutes
 
-  # GET /zernio/callback/:state?step=select_phone_number&tempToken=…&connect_token=…&profileId=…
+  # GET /zernio/callback/:state
+  # Two modes:
+  #  - headless (step=select_phone_number): tempToken returned; we list phones and auto-pick or show selection screen.
+  #  - standard (no step): single-phone WABAs return accountId/username directly, no tempToken.
   def show
     cached = read_state(params[:state])
     return redirect_to('/') if cached.blank?
 
-    phones = Whatsapp::Providers::ZernioService.list_phone_numbers(
-      profile_id: cached[:profile_id], temp_token: params[:tempToken]
-    )
-
-    auto_picked = pick_phone_or_nil(cached, phones)
-    if auto_picked
-      ::Redis::Alfred.delete("zernio:oauth:state:#{params[:state]}")
-      redirect_to finalize_and_redirect(cached, auto_picked, params[:tempToken])
+    if params[:step] == 'select_phone_number'
+      handle_headless_callback(cached)
     else
-      persist_extended_state(cached, phones)
-      redirect_to "/app/accounts/#{cached[:account_id]}/whatsapp/select-phone/#{params[:state]}"
+      handle_standard_callback(cached)
     end
   rescue StandardError => e
     Rails.logger.error "[WHATSAPP][ZERNIO] callback error: #{e.class}: #{e.message}"
@@ -56,6 +52,57 @@ class ZernioCallbackController < ApplicationController
   end
 
   private
+
+  def handle_headless_callback(cached)
+    phones = Whatsapp::Providers::ZernioService.list_phone_numbers(
+      profile_id: cached[:profile_id], temp_token: params[:tempToken]
+    )
+
+    auto_picked = pick_phone_or_nil(cached, phones)
+    if auto_picked
+      ::Redis::Alfred.delete("zernio:oauth:state:#{params[:state]}")
+      redirect_to finalize_and_redirect(cached, auto_picked, params[:tempToken])
+    else
+      persist_extended_state(cached, phones)
+      redirect_to "/app/accounts/#{cached[:account_id]}/whatsapp/select-phone/#{params[:state]}"
+    end
+  end
+
+  # Standard mode: Zernio finished OAuth itself and posted accountId/username back. No tempToken available.
+  def handle_standard_callback(cached)
+    ::Redis::Alfred.delete("zernio:oauth:state:#{params[:state]}")
+    account = Account.find(cached[:account_id])
+    is_reauth = cached[:inbox_id].present?
+    username = params[:username]
+    zernio_account = lookup_zernio_account(params[:accountId], cached[:profile_id], username)
+
+    channel = Whatsapp::Zernio::ChannelCreationService.new(
+      account: account,
+      phone_number: self.class.normalize_phone(username),
+      account_id: zernio_account&.dig('_id') || params[:accountId],
+      profile_id: cached[:profile_id],
+      phone_number_id: zernio_account&.dig('metadata', 'phoneNumberId'),
+      business_account_id: zernio_account&.dig('metadata', 'wabaId'),
+      inbox_name: is_reauth ? nil : "#{cached[:account_name]} -> WhatsApp",
+      inbox_id: cached[:inbox_id]
+    ).perform
+
+    redirect_to redirect_after_creation(account, channel, is_reauth)
+  end
+
+  def lookup_zernio_account(account_id, profile_id, username)
+    accounts = Whatsapp::Providers::ZernioService.list_accounts
+    accounts.find { |a| a['_id'] == account_id } ||
+      accounts.find { |a| a.dig('profileId', '_id') == profile_id && a['username'] == username }
+  end
+
+  def redirect_after_creation(account, channel, is_reauth)
+    if is_reauth
+      "/app/accounts/#{account.id}/settings/inboxes/#{channel.inbox.id}/configuration?reauthorized=true"
+    else
+      "/app/accounts/#{account.id}/settings/inboxes/new/#{channel.inbox.id}/agents"
+    end
+  end
 
   def read_state(state)
     raw = ::Redis::Alfred.get("zernio:oauth:state:#{state}")
@@ -110,12 +157,14 @@ class ZernioCallbackController < ApplicationController
       inbox_id: cached[:inbox_id]
     ).perform
 
-    Whatsapp::Providers::ZernioService.override_meta_webhook(
-      waba_id: picked['wabaId'],
-      access_token: temp_token,
-      callback_url: "#{self.class.webhook_base_url}/webhooks/whatsapp/#{channel.phone_number}",
-      verify_token: channel.provider_config['webhook_verify_token']
-    )
+    if Whatsapp::Providers::ZernioService.direct_meta_enabled?
+      Whatsapp::Providers::ZernioService.override_meta_webhook(
+        waba_id: picked['wabaId'],
+        access_token: temp_token,
+        callback_url: "#{self.class.webhook_base_url}/webhooks/whatsapp/#{channel.phone_number}",
+        verify_token: channel.provider_config['webhook_verify_token']
+      )
+    end
 
     "/app/accounts/#{account.id}/settings/inboxes/#{channel.inbox.id}/configuration?reauthorized=true"
   end

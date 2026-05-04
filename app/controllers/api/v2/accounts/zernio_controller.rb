@@ -92,12 +92,14 @@ class Api::V2::Accounts::ZernioController < Api::V1::Accounts::BaseController
       inbox_id: cached['inbox_id']
     ).perform
 
-    Whatsapp::Providers::ZernioService.override_meta_webhook(
-      waba_id: picked['wabaId'],
-      access_token: cached['temp_token'],
-      callback_url: "#{webhook_base_url}/webhooks/whatsapp/#{channel.phone_number}",
-      verify_token: channel.provider_config['webhook_verify_token']
-    )
+    if Whatsapp::Providers::ZernioService.direct_meta_enabled?
+      Whatsapp::Providers::ZernioService.override_meta_webhook(
+        waba_id: picked['wabaId'],
+        access_token: cached['temp_token'],
+        callback_url: "#{webhook_base_url}/webhooks/whatsapp/#{channel.phone_number}",
+        verify_token: channel.provider_config['webhook_verify_token']
+      )
+    end
 
     redirect_path = if is_reauth
                       "/app/accounts/#{account.id}/settings/inboxes/#{channel.inbox.id}/configuration?reauthorized=true"

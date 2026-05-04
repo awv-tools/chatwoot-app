@@ -71,17 +71,19 @@ class Whatsapp::Zernio::ChannelCreationService
   end
 
   def provider_config_payload
-    {
+    payload = {
       'gateway' => 'zernio',
       'account_id' => @account_id,
       'profile_id' => @profile_id,
-      'api_key' => @api_key,
       'phone_number_id' => @phone_number_id,
       'business_account_id' => @business_account_id,
       # Marked as embedded_signup so all existing UI gates that hide manual
       # webhook details and show OAuth-style reauth banners apply transparently.
       'source' => 'embedded_signup'
-    }.compact
+    }
+    # Only persist Meta token when direct-meta runtime is on; otherwise channel uses Zernio runtime.
+    payload['api_key'] = @api_key if Whatsapp::Providers::ZernioService.direct_meta_enabled?
+    payload.compact
   end
 
   def inbox_name_for_create

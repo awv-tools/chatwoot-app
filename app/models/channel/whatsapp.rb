@@ -46,9 +46,20 @@ class Channel::Whatsapp < ApplicationRecord
   end
 
   def provider_service
+    return zernio_provider_service if zernio_gateway?
     return Whatsapp::Providers::WhatsappCloudService.new(whatsapp_channel: self) if provider == 'whatsapp_cloud'
 
     Whatsapp::Providers::Whatsapp360DialogService.new(whatsapp_channel: self)
+  end
+
+  def zernio_provider_service
+    klass = direct_meta_active? ? Whatsapp::Providers::WhatsappCloudService : Whatsapp::Providers::ZernioService
+    klass.new(whatsapp_channel: self)
+  end
+
+  # Direct-meta runtime requires the toggle on AND a usable Meta token on the channel.
+  def direct_meta_active?
+    Whatsapp::Providers::ZernioService.direct_meta_enabled? && provider_config['api_key'].present?
   end
 
   def mark_message_templates_updated

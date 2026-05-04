@@ -8,11 +8,17 @@ class Whatsapp::HealthService
   end
 
   def fetch_health_status
+    return fetch_zernio_health_data if @channel&.zernio_gateway? && !direct_meta_active?
+
     validate_channel!
     fetch_phone_health_data
   end
 
   private
+
+  def direct_meta_active?
+    Whatsapp::Providers::ZernioService.direct_meta_enabled? && @channel.provider_config['api_key'].present?
+  end
 
   def validate_channel!
     raise ArgumentError, 'Channel is required' if @channel.blank?

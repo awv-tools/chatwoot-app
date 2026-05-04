@@ -319,6 +319,24 @@
           "MANUAL_FALLBACK": "If your number is already connected to the WhatsApp Business Platform (API), or if you’re a tech provider onboarding your own number, please use the {link} flow",
           "MANUAL_LINK_TEXT": "manual setup flow"
         },
+        "ZERNIO": {
+          "SELECT_PHONE": {
+            "TITLE": "Choose the WhatsApp number to connect",
+            "DESC": "These are the WhatsApp numbers available in your Meta Business account. Select the one you want to connect to this inbox.",
+            "FILTER_PLACEHOLDER": "Filter by number",
+            "EMPTY": "No numbers match your filter",
+            "CANCEL": "Cancel",
+            "ERROR": "Could not complete the connection. Please try again.",
+            "QUALITY_LABEL": "Quality",
+            "QUALITY": {
+              "GREEN": "High",
+              "YELLOW": "Medium",
+              "RED": "Low",
+              "UNKNOWN": "Unknown",
+              "NA": "Unavailable"
+            }
+          }
+        },
         "API": {
           "ERROR_MESSAGE": "We were not able to save the WhatsApp channel"
         }

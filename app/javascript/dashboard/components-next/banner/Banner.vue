@@ -14,6 +14,10 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  isLoading: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['action']);
@@ -64,10 +68,15 @@ const triggerAction = () => {
     <div>
       <button
         v-if="actionLabel"
-        class="px-3 py-1 w-auto grid place-content-center rounded-lg"
+        class="px-3 py-1 w-auto flex items-center gap-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
         :class="buttonClass"
+        :disabled="isLoading"
         @click="triggerAction"
       >
+        <span
+          v-if="isLoading"
+          class="inline-block w-3 h-3 border-2 border-current border-r-transparent rounded-full animate-spin"
+        />
         {{ actionLabel }}
       </button>
     </div>

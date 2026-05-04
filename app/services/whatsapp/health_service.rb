@@ -8,8 +8,6 @@ class Whatsapp::HealthService
   end
 
   def fetch_health_status
-    return fetch_zernio_health_data if @channel&.zernio_gateway?
-
     validate_channel!
     fetch_phone_health_data
   end
@@ -120,9 +118,9 @@ class Whatsapp::HealthService
   end
 
   def build_expected_webhook_url
-    frontend_url = ENV.fetch('FRONTEND_URL', nil)
-    return nil if frontend_url.blank?
+    base_url = ENV['WEBHOOK_URL'].presence || ENV['FRONTEND_URL'].presence
+    return nil if base_url.blank?
 
-    "#{frontend_url}/webhooks/whatsapp/#{@channel.phone_number}"
+    "#{base_url}/webhooks/whatsapp/#{@channel.phone_number}"
   end
 end

@@ -12,6 +12,7 @@ import { routes as captainRoutes } from './captain/captain.routes';
 import AppContainer from './Dashboard.vue';
 import Suspended from './suspended/Index.vue';
 import NoAccounts from './noAccounts/Index.vue';
+import WhatsappSelectPhone from './settings/inbox/channels/whatsapp/WhatsappSelectPhone.vue';
 
 export default {
   routes: [
@@ -38,6 +39,14 @@ export default {
         permissions: ['administrator', 'agent', 'custom_role'],
       },
       component: Suspended,
+    },
+    {
+      path: frontendURL('accounts/:accountId/whatsapp/select-phone/:state'),
+      name: 'whatsapp_select_phone',
+      component: WhatsappSelectPhone,
+      meta: {
+        permissions: ['administrator'],
+      },
     },
     {
       path: frontendURL('no-accounts'),

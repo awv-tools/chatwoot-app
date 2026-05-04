@@ -11,10 +11,11 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       response.parsed_response.dig('profile', '_id')
     end
 
+    # headless=true returns OAuth data straight to our callback (Zernio's selection UI is skipped).
     def request_auth_url(profile_id:, redirect_url:)
       response = HTTParty.get(
         "#{api_base_path}/v1/connect/whatsapp",
-        request_options(headers: api_headers, query: { profileId: profile_id, redirect_url: redirect_url })
+        request_options(headers: api_headers, query: { profileId: profile_id, redirect_url: redirect_url, headless: true })
       )
       raise "Failed to obtain Zernio auth URL (HTTP #{response.code})" unless response.success?
 
@@ -72,8 +73,7 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       response.parsed_response['accounts'] || []
     end
 
-    # Reusa profile órfão (prefix match + sem canais conectados) ou cria novo. Após criar,
-    # PUT inclui o id no nome — final fica "{prefix}: {id}". Profile name é canal-agnóstico.
+    # Reusa profile órfão (prefix match + sem canais conectados) ou cria novo.
     def find_or_create_profile(prefix:)
       orphan = list_profiles.find do |p|
         p['name'].to_s.start_with?(prefix) && p['accountUsernames'].to_a.empty?
@@ -83,6 +83,50 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       id = create_profile(name: prefix)
       update_profile(id: id, name: "#{prefix}: #{id}")
       id
+    end
+
+    def list_phone_numbers(profile_id:, temp_token:)
+      response = HTTParty.get(
+        "#{api_base_path}/v1/connect/whatsapp/select-phone-number",
+        request_options(headers: api_headers, query: { profileId: profile_id, tempToken: temp_token })
+      )
+      raise "Zernio list_phone_numbers failed (HTTP #{response.code}): #{response.body}" unless response.success?
+
+      response.parsed_response['phoneNumbers'] || []
+    end
+
+    def select_phone_number_finalize(phone_number_id:, profile_id:, temp_token:, waba_id:)
+      body = {
+        phoneNumberId: phone_number_id,
+        profileId: profile_id,
+        tempToken: temp_token,
+        wabaId: waba_id
+      }
+      response = HTTParty.post(
+        "#{api_base_path}/v1/connect/whatsapp/select-phone-number",
+        request_options(headers: api_headers, body: body.to_json)
+      )
+      raise "Zernio select_phone_number failed (HTTP #{response.code}): #{response.body}" unless response.success?
+
+      response.parsed_response
+    end
+
+    # Direct override-only call — skips register (SMB-incompatible) and subscribe_app (Zernio already subscribed).
+    def override_meta_webhook(waba_id:, access_token:, callback_url:, verify_token:)
+      api_version = GlobalConfigService.load('WHATSAPP_API_VERSION', 'v22.0')
+      url = "https://graph.facebook.com/#{api_version}/#{waba_id}/subscribed_apps"
+      body = {
+        override_callback_uri: callback_url,
+        verify_token: verify_token
+      }
+      headers = {
+        'Authorization' => "Bearer #{access_token}",
+        'Content-Type' => 'application/json'
+      }
+      response = HTTParty.post(url, request_options(headers: headers, body: body.to_json))
+      raise "Meta override failed (HTTP #{response.code}): #{response.body}" unless response.success?
+
+      response.parsed_response
     end
 
     def api_base_path
@@ -96,10 +140,10 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       }
     end
 
-    # Optional MITM proxy for Zernio requests; disabled in production.
+    # Optional MITM proxy; active whenever PROXY_URL is set (including production for debug).
     def http_options
       proxy = ENV.fetch('PROXY_URL', '')
-      return {} if proxy.blank? || Rails.env.production?
+      return {} if proxy.blank?
 
       uri = URI.parse(proxy)
       return {} if uri.host.blank?
@@ -119,6 +163,9 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
       options.merge(http_options)
     end
   end
+
+  # Runtime methods below — dormant fallback, not called in current flow (channels with Meta api_key
+  # route through WhatsappCloudService). Kept in case Zernio runtime is needed again.
 
   def send_message(_phone_number, message)
     @message = message

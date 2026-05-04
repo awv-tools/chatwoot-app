@@ -40,12 +40,12 @@ class Channel::Whatsapp < ApplicationRecord
     'Whatsapp'
   end
 
+  # Metadata marker only — identifies channels provisioned via Zernio (used by frontend reauth path).
   def zernio_gateway?
     provider_config.is_a?(Hash) && provider_config['gateway'] == 'zernio'
   end
 
   def provider_service
-    return Whatsapp::Providers::ZernioService.new(whatsapp_channel: self) if zernio_gateway?
     return Whatsapp::Providers::WhatsappCloudService.new(whatsapp_channel: self) if provider == 'whatsapp_cloud'
 
     Whatsapp::Providers::Whatsapp360DialogService.new(whatsapp_channel: self)
@@ -75,8 +75,7 @@ class Channel::Whatsapp < ApplicationRecord
   private
 
   def ensure_webhook_verify_token
-    return if zernio_gateway?
-
+    # Zernio channels need the token too — Meta validates override callback against it.
     provider_config['webhook_verify_token'] ||= SecureRandom.hex(16) if provider == 'whatsapp_cloud'
   end
 

@@ -470,6 +470,8 @@ Rails.application.routes.draw do
           end
 
           post 'zernio/authorize', to: 'zernio#authorize'
+          get 'zernio/select_phone', to: 'zernio#select_phone_data'
+          post 'zernio/select_phone', to: 'zernio#select_phone'
         end
       end
     end

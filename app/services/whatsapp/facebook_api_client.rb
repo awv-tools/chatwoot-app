@@ -9,11 +9,13 @@ class Whatsapp::FacebookApiClient
   def exchange_code_for_token(code)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/oauth/access_token",
-      query: {
-        client_id: GlobalConfigService.load('WHATSAPP_APP_ID', ''),
-        client_secret: GlobalConfigService.load('WHATSAPP_APP_SECRET', ''),
-        code: code
-      }
+      {
+        query: {
+          client_id: GlobalConfigService.load('WHATSAPP_APP_ID', ''),
+          client_secret: GlobalConfigService.load('WHATSAPP_APP_SECRET', ''),
+          code: code
+        }
+      }.merge(proxy_options)
     )
 
     handle_response(response, 'Token exchange failed')
@@ -22,7 +24,7 @@ class Whatsapp::FacebookApiClient
   def fetch_phone_numbers(waba_id)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/phone_numbers",
-      query: { access_token: @access_token }
+      { query: { access_token: @access_token } }.merge(proxy_options)
     )
 
     handle_response(response, 'WABA phone numbers fetch failed')
@@ -31,10 +33,12 @@ class Whatsapp::FacebookApiClient
   def debug_token(input_token)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/debug_token",
-      query: {
-        input_token: input_token,
-        access_token: build_app_access_token
-      }
+      {
+        query: {
+          input_token: input_token,
+          access_token: build_app_access_token
+        }
+      }.merge(proxy_options)
     )
 
     handle_response(response, 'Token validation failed')
@@ -43,8 +47,10 @@ class Whatsapp::FacebookApiClient
   def register_phone_number(phone_number_id, pin)
     response = HTTParty.post(
       "#{BASE_URI}/#{@api_version}/#{phone_number_id}/register",
-      headers: request_headers,
-      body: { messaging_product: 'whatsapp', pin: pin.to_s }.to_json
+      {
+        headers: request_headers,
+        body: { messaging_product: 'whatsapp', pin: pin.to_s }.to_json
+      }.merge(proxy_options)
     )
 
     handle_response(response, 'Phone registration failed')
@@ -53,7 +59,7 @@ class Whatsapp::FacebookApiClient
   def phone_number_verified?(phone_number_id)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/#{phone_number_id}",
-      headers: request_headers
+      { headers: request_headers }.merge(proxy_options)
     )
 
     data = handle_response(response, 'Phone status check failed')
@@ -73,7 +79,7 @@ class Whatsapp::FacebookApiClient
   def subscribe_app_to_waba(waba_id)
     response = HTTParty.post(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/subscribed_apps",
-      headers: request_headers
+      { headers: request_headers }.merge(proxy_options)
     )
 
     handle_response(response, 'App subscription to WABA failed')
@@ -82,12 +88,14 @@ class Whatsapp::FacebookApiClient
   def override_waba_callback(waba_id, callback_url, verify_token)
     response = HTTParty.post(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/subscribed_apps",
-      headers: request_headers,
-      body: {
-        override_callback_uri: callback_url,
-        verify_token: verify_token,
-        subscribed_fields: %w[messages smb_message_echoes]
-      }.to_json
+      {
+        headers: request_headers,
+        body: {
+          override_callback_uri: callback_url,
+          verify_token: verify_token,
+          subscribed_fields: %w[messages smb_message_echoes]
+        }.to_json
+      }.merge(proxy_options)
     )
 
     handle_response(response, 'Webhook callback override failed')
@@ -96,7 +104,7 @@ class Whatsapp::FacebookApiClient
   def unsubscribe_waba_webhook(waba_id)
     response = HTTParty.delete(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/subscribed_apps",
-      headers: request_headers
+      { headers: request_headers }.merge(proxy_options)
     )
 
     handle_response(response, 'Webhook unsubscription failed')
@@ -121,5 +129,24 @@ class Whatsapp::FacebookApiClient
     raise "#{error_message}: #{response.body}" unless response.success?
 
     response.parsed_response
+  end
+
+  # Permite encaminhar todas as chamadas Graph API por um proxy local pra debug.
+  def proxy_options
+    proxy = ENV.fetch('PROXY_URL', '')
+    return {} if proxy.blank?
+
+    uri = URI.parse(proxy)
+    return {} if uri.host.blank?
+
+    {
+      http_proxyaddr: uri.host,
+      http_proxyport: uri.port,
+      http_proxyuser: uri.user,
+      http_proxypass: uri.password,
+      verify: false
+    }.compact
+  rescue URI::InvalidURIError
+    {}
   end
 end

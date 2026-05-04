@@ -1,9 +1,12 @@
 class Whatsapp::Zernio::ChannelCreationService
-  def initialize(account:, phone_number:, account_id:, profile_id:, phone_number_id: nil, business_account_id: nil, inbox_name: nil, inbox_id: nil)
+  def initialize(account:, phone_number:, account_id:, profile_id:,
+                 api_key: nil, phone_number_id: nil, business_account_id: nil,
+                 inbox_name: nil, inbox_id: nil)
     @account = account
     @phone_number = phone_number
     @account_id = account_id
     @profile_id = profile_id
+    @api_key = api_key
     @phone_number_id = phone_number_id
     @business_account_id = business_account_id
     @inbox_name = inbox_name
@@ -72,6 +75,7 @@ class Whatsapp::Zernio::ChannelCreationService
       'gateway' => 'zernio',
       'account_id' => @account_id,
       'profile_id' => @profile_id,
+      'api_key' => @api_key,
       'phone_number_id' => @phone_number_id,
       'business_account_id' => @business_account_id,
       # Marked as embedded_signup so all existing UI gates that hide manual

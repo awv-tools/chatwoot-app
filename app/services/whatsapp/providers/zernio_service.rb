@@ -160,7 +160,7 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
     end
 
     def request_options(options = {})
-      options.merge(http_options)
+      { open_timeout: 5, read_timeout: 10 }.merge(options).merge(http_options)
     end
   end
 

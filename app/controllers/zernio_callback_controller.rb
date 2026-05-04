@@ -90,13 +90,13 @@ class ZernioCallbackController < ApplicationController
       phone_number_id: picked['id'],
       profile_id: cached[:profile_id],
       temp_token: temp_token,
-      waba_id: picked['wabaId'],
-      redirect_url: "#{request.base_url}/zernio/callback/#{params[:state]}"
+      waba_id: picked['wabaId']
     )
 
     account = Account.find(cached[:account_id])
-    username = result['username'] || picked['display_phone_number']
-    zernio_account_id = result['accountId'] || self.class.lookup_account_id_by_username(cached[:profile_id], username)
+    zernio_account_payload = result['account'] || {}
+    username = zernio_account_payload['username'] || picked['display_phone_number']
+    zernio_account_id = zernio_account_payload['accountId'] || self.class.lookup_account_id_by_username(cached[:profile_id], username)
 
     channel = Whatsapp::Zernio::ChannelCreationService.new(
       account: account,

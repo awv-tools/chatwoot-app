@@ -13,11 +13,13 @@ class Whatsapp::Providers::ZernioService < Whatsapp::Providers::BaseService
 
     # headless=true returns OAuth data straight to our callback (Zernio's selection UI is skipped).
     def request_auth_url(profile_id:, redirect_url:)
-      response = HTTParty.get(
-        "#{api_base_path}/v1/connect/whatsapp",
-        request_options(headers: api_headers, query: { profileId: profile_id, redirect_url: redirect_url, headless: true })
-      )
-      raise "Failed to obtain Zernio auth URL (HTTP #{response.code})" unless response.success?
+      url = "#{api_base_path}/v1/connect/whatsapp"
+      query = { profileId: profile_id, redirect_url: redirect_url, headless: true }
+      response = HTTParty.get(url, request_options(headers: api_headers, query: query))
+      unless response.success?
+        Rails.logger.error "[WHATSAPP][ZERNIO] auth_url failed url=#{url} query=#{query.inspect} status=#{response.code} body=#{response.body}"
+        raise "Failed to obtain Zernio auth URL (HTTP #{response.code})"
+      end
 
       parsed = response.parsed_response
       parsed.is_a?(Hash) ? parsed['authUrl'] : nil

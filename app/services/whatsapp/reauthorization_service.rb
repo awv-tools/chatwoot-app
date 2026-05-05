@@ -26,16 +26,15 @@ class Whatsapp::ReauthorizationService
   private
 
   def update_channel_config(channel, access_token, phone_info)
-    current_config = channel.provider_config || {}
-    channel.provider_config = current_config.merge(
+    # Full replace drops legacy Zernio fields; webhook_verify_token is regenerated before_validation.
+    channel.provider_config = {
       'api_key' => access_token,
       'phone_number_id' => @phone_number_id,
       'business_account_id' => @business_id,
       'source' => 'embedded_signup'
-    )
+    }
     channel.save!
 
-    # Update inbox name if business name changed
     business_name = phone_info[:business_name] || phone_info[:verified_name]
     channel.inbox.update!(name: business_name) if business_name.present?
   end

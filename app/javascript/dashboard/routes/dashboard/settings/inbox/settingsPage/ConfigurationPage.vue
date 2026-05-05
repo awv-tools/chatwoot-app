@@ -60,14 +60,11 @@ export default {
       return this.inbox.provider_config?.gateway === 'zernio';
     },
     shouldReconfigureViaZernio() {
-      // Either already on Zernio, or the operator has Zernio enabled globally —
-      // in that case any existing embedded_signup inbox should migrate via Zernio
-      // when the customer clicks Reconfigure (instead of going back to Meta direct).
-      return (
-        this.isZernioGatewayWhatsApp ||
-        (window.chatwootConfig?.zernioEnabled === true &&
-          this.isEmbeddedSignupWhatsApp)
-      );
+      // Reauth pelo Zernio só quando a feature está ativa. Quando desligada,
+      // até inboxes com gateway=zernio caem no embedded signup — assim o
+      // ReauthorizationService sobrepõe o provider_config com creds Meta.
+      if (window.chatwootConfig?.zernioEnabled !== true) return false;
+      return this.isZernioGatewayWhatsApp || this.isEmbeddedSignupWhatsApp;
     },
     whatsappAppId() {
       return window.chatwootConfig?.whatsappAppId;

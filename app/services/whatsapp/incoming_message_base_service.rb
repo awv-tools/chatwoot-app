@@ -3,6 +3,7 @@
 # https://developers.facebook.com/docs/whatsapp/api/media/
 class Whatsapp::IncomingMessageBaseService
   include ::Whatsapp::IncomingMessageServiceHelpers
+  include ::Whatsapp::IncomingMessageIdentifierHelper
 
   pattr_initialize [:inbox!, :params!, :outgoing_echo]
 
@@ -13,18 +14,10 @@ class Whatsapp::IncomingMessageBaseService
   def perform
     processed_params
 
-    statuses = processed_params.try(:[], :statuses) || processed_params.try(:[], 'statuses')
-    messages = processed_params.try(:[], :messages) || processed_params.try(:[], 'messages')
-    message_echoes = processed_params.try(:[], :message_echoes) || processed_params.try(:[], 'message_echoes')
-
-    if statuses.present?
+    if processed_params.try(:[], :statuses).present?
       process_statuses
-    elsif messages.present?
+    elsif messages_data.present?
       process_messages
-    elsif message_echoes.present?
-      process_message_echoes
-    else
-      Rails.logger.warn 'WhatsApp webhook received but no processable content found (statuses, messages, or message_echoes/smb_message_echoes)'
     end
   end
 
@@ -40,13 +33,12 @@ class Whatsapp::IncomingMessageBaseService
     # if the webhook event is a reaction or an ephermal message or an unsupported message.
     return if unprocessable_message_type?(message_type)
 
-    # Multiple webhook event can be received against the same message due to misconfigurations in the Meta
-    # business manager account. While we have not found the core reason yet, the following line ensure that
-    # there are no duplicate messages created.
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
-    message_id = first_message&.[](:id) || first_message&.[]('id')
-    return if find_message_by_source_id(message_id) || message_under_process?
+    # Multiple webhook events can be received for the same message due to
+    # misconfigurations in the Meta business manager account.
+    # We use an atomic Redis SET NX to prevent concurrent workers from both
+    # processing the same message simultaneously.
+    return if find_message_by_source_id(messages_data.first[:id])
+    return unless lock_message_source_id!
 
     set_contact
     return unless @contact
@@ -66,6 +58,7 @@ class Whatsapp::IncomingMessageBaseService
     status_id = status[:id] || status['id']
     return unless find_message_by_source_id(status_id)
 
+    update_whatsapp_identifiers_from_status(status)
     update_message_with_status(@message, status)
   rescue ArgumentError => e
     Rails.logger.error "Error while processing whatsapp status update #{e.message}"
@@ -101,13 +94,26 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_messages
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    message = messages_array.first
+    message = messages_data.first
+    return create_unsupported_message(message) if message_type == 'unsupported'
+
     log_error(message) && return if error_webhook_event?(message)
 
     process_in_reply_to(message)
 
     message_type == 'contacts' ? create_contact_messages(message) : create_regular_message(message)
+  end
+
+  # WhatsApp delivers messages it cannot render (e.g. coexistence companion-device syncs that
+  # fail with error 131060) as type: unsupported with no content. We still persist a placeholder
+  # so the contact/conversation isn't created "headless" and agents know to check the WhatsApp app.
+  def create_unsupported_message(message)
+    log_error(message) if error_webhook_event?(message)
+    process_in_reply_to(message)
+    create_message(message, source_id: message[:id])
+    @message.content = I18n.t('conversations.messages.whatsapp.unsupported_message')
+    @message.content_attributes = @message.content_attributes.merge(is_unsupported: true)
+    @message.save!
   end
 
   def create_contact_messages(message)
@@ -131,29 +137,11 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def set_contact
-    contacts_array = @processed_params[:contacts] || @processed_params['contacts']
-    contact_params = contacts_array&.first
-    return if contact_params.blank?
-
-    waid = processed_waid(contact_params[:wa_id] || contact_params['wa_id'])
-
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    from_number = messages_array.first[:from] || messages_array.first['from']
-
-    contact_inbox = ::ContactInboxWithContactBuilder.new(
-      source_id: waid,
-      inbox: inbox,
-      contact_attributes: {
-        name: contact_params.dig(:profile, :name) || contact_params.dig('profile', 'name'),
-        phone_number: "+#{from_number}"
-      }
-    ).perform
-
-    @contact_inbox = contact_inbox
-    @contact = contact_inbox.contact
-
-    # Update existing contact name if ProfileName is available and current name is just phone number
-    update_contact_with_profile_name(contact_params)
+    if outgoing_echo
+      set_contact_from_echo
+    else
+      set_contact_from_message
+    end
   end
 
   def set_conversation
@@ -194,12 +182,8 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def attach_location
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
-    location = first_message&.[]('location') || first_message&.[](:location)
-    return unless location
-
-    location_name = location['name'] ? "#{location['name']}, #{location['address']}" : ''
+    location = messages_data.first['location']
+    location_name = (location['name'] ? "#{location['name']}, #{location['address']}" : '').first(255)
     @message.attachments.new(
       account_id: @message.account_id,
       file_type: file_content_type(message_type),
@@ -233,15 +217,19 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def create_message(message, source_id: nil)
-    message_id = source_id || message[:id] || message['id']
+    content_attrs = outgoing_echo ? { external_echo: true } : {}
+    content_attrs[:in_reply_to_external_id] = @in_reply_to_external_id if @in_reply_to_external_id.present?
+
     @message = @conversation.messages.build(
       content: message_content(message),
       account_id: @inbox.account_id,
       inbox_id: @inbox.id,
-      message_type: :incoming,
-      sender: @contact,
-      source_id: message_id.to_s,
-      in_reply_to_external_id: @in_reply_to_external_id
+      message_type: outgoing_echo ? :outgoing : :incoming,
+      # Set status to :delivered for echo messages to prevent SendReplyJob from trying to send them
+      status: outgoing_echo ? :delivered : :sent,
+      sender: outgoing_echo ? nil : @contact,
+      source_id: (source_id || message[:id]).to_s,
+      content_attributes: content_attrs
     )
   end
 
@@ -277,17 +265,17 @@ class Whatsapp::IncomingMessageBaseService
   end
 
   def contact_name_matches_phone_number?
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
-    from_number = first_message&.[](:from) || first_message&.[]('from')
-    return false unless from_number
+    message_phone_number = whatsapp_phone_number(messages_data.first[:from])
+    return false if message_phone_number.blank?
 
-    phone_number = "+#{from_number}"
+    phone_number = "+#{message_phone_number}"
     formatted_phone_number = TelephoneNumber.parse(phone_number).international_number
     @contact.name == phone_number || @contact.name == formatted_phone_number
   end
 
-  def process_message_echoes
+  # LEGACY echo pipeline (kept for comparison/fallback). No longer wired into `perform` —
+  # echoes now flow through develop's unified path (outgoing_echo -> process_messages).
+  def process_message_echoes_legacy
     message_echoes_array = @processed_params[:message_echoes] || @processed_params['message_echoes']
     return if message_echoes_array.blank?
 

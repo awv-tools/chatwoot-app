@@ -21,6 +21,10 @@ class ConversationApi extends ApiClient {
         return Promise.reject(error);
       });
   }
+
+  getUnreadCounts() {
+    return axios.get(`${this.url}/unread_counts`);
+  }
 }
 
 export default new ConversationApi();

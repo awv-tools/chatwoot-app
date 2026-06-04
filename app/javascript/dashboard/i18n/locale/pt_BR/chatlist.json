@@ -142,6 +142,7 @@
     "MESSAGE_READ": "Lida",
     "SENDING": "Enviando",
     "SHOW_UNREAD_ONLY": "Mostrar apenas conversas não lidas",
-    "SHOW_ALL_CONVERSATIONS": "Mostrar todas as conversas"
+    "SHOW_ALL_CONVERSATIONS": "Mostrar todas as conversas",
+    "UNREAD_COUNT_OVERFLOW": "9+"
   }
 }

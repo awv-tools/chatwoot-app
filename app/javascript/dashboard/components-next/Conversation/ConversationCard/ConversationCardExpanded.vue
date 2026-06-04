@@ -35,10 +35,16 @@ const emit = defineEmits([
 const lastMessageInChat = computed(() => getLastMessage(props.chat));
 const showLabelsSection = computed(() => props.chat.labels?.length > 0);
 
-const voiceCallData = computed(() => ({
-  status: props.chat.additional_attributes?.call_status,
-  direction: props.chat.additional_attributes?.call_direction,
-}));
+const voiceCallData = computed(() => {
+  const last = lastMessageInChat.value;
+  if (last?.content_type !== 'voice_call' || !last.call) {
+    return { status: null, direction: null };
+  }
+  return {
+    status: last.call.status,
+    direction: last.call.direction === 'outgoing' ? 'outbound' : 'inbound',
+  };
+});
 
 const unreadCount = computed(() => props.chat.unread_count);
 
@@ -112,11 +118,14 @@ const selectedModel = computed({
 
       <div class="w-px h-3 bg-n-slate-6 flex-shrink-0" />
 
-      <div v-if="!isInboxView" class="w-20 flex-shrink-0">
+      <div v-if="!isInboxView && showInboxName" class="w-20 flex-shrink-0">
         <InboxName v-if="showInboxName" :inbox="inbox" class="min-w-0" />
       </div>
 
-      <div v-if="!isInboxView" class="w-px h-3 bg-n-slate-6 flex-shrink-0" />
+      <div
+        v-if="!isInboxView && showInboxName"
+        class="w-px h-3 bg-n-slate-6 flex-shrink-0"
+      />
 
       <div
         v-tooltip.top="{

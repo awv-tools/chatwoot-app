@@ -155,6 +155,9 @@ const activeFolder = computed(() => {
   return undefined;
 });
 
+const getContact = useMapGetter('contacts/getContact');
+const folderContactId = useMapGetter('customViews/getActiveFolderContactId');
+
 const activeFolderName = computed(() => {
   return activeFolder.value?.name;
 });
@@ -334,6 +337,15 @@ function filterByAssigneeTab(conversations) {
   return [...conversations];
 }
 
+function sortByUnreadStatus(conversations) {
+  return [...conversations].sort((a, b) => {
+    const unreadCountDiff = (b.unread_count || 0) - (a.unread_count || 0);
+    if (unreadCountDiff !== 0) return unreadCountDiff;
+
+    return (b.last_activity_at || 0) - (a.last_activity_at || 0);
+  });
+}
+
 // Unfiltered conversation list for pagination reference
 const unfilteredConversationList = computed(() => {
   let localConversationList = [];
@@ -362,6 +374,13 @@ const unfilteredConversationList = computed(() => {
     localConversationList = localConversationList.filter(conversation => {
       return matchesFilters(conversation, payload);
     });
+  }
+
+  if (
+    !hasAppliedFiltersOrActiveFolders.value &&
+    activeSortBy.value === wootConstants.SORT_BY_TYPE.UNREAD
+  ) {
+    localConversationList = sortByUnreadStatus(localConversationList);
   }
 
   return localConversationList;
@@ -501,6 +520,7 @@ function setParamsForEditFolderModal() {
     inboxes: inboxesList.value,
     labels: labels.value,
     campaigns: campaigns.value,
+    contacts: [getContact.value(folderContactId.value)],
     languages: languages,
     countries: countries,
     priority: [

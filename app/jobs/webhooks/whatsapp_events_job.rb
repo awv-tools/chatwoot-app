@@ -127,7 +127,8 @@ class Webhooks::WhatsappEventsJob < MutexApplicationJob
 
   def channel_is_inactive?(channel)
     return true if channel.blank?
-    return true if channel.reauthorization_required?
+    # Only skip for embedded signup when reauth is required; manual flow uses API keys and should still receive webhooks
+    return true if channel.reauthorization_required? && embedded_signup_channel?(channel)
     return true unless channel.account.active?
 
     false
@@ -138,6 +139,10 @@ class Webhooks::WhatsappEventsJob < MutexApplicationJob
   # (eg: legacy payloads without the URL param).
   def find_channel(params)
     find_channel_by_url_param(params) || find_channel_from_whatsapp_business_payload(params)
+  end
+
+  def embedded_signup_channel?(channel)
+    (channel.provider_config || {}).to_h['source'] == 'embedded_signup'
   end
 
   def find_channel_by_url_param(params)

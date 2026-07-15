@@ -41,7 +41,6 @@ export default {
       hmacMandatory: false,
       allowMobileWebview: false,
       whatsAppInboxAPIKey: '',
-      isRequestingReauthorization: false,
       isSyncingTemplates: false,
       allowedDomains: '',
       isUpdatingAllowedDomains: false,
@@ -395,22 +394,17 @@ export default {
       <!-- Embedded Signup Section -->
       <template v-else-if="isEmbeddedSignupWhatsApp">
         <SettingsFieldSection
-          v-if="whatsappAppId"
-          :label="
-            $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_TITLE')
+          :label="$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_WEBHOOK_TITLE')"
+          :help-text="
+            $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_WEBHOOK_SUBHEADER')
           "
-          :help-text="`${$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_SUBHEADER')} ${$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_EMBEDDED_SIGNUP_DESCRIPTION')}`"
         >
-          <div class="flex flex-col gap-1 items-start">
-            <NextButton @click="handleReconfigure">
-              {{ $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_RECONFIGURE_BUTTON') }}
-            </NextButton>
-          </div>
+          <woot-code :script="inbox.provider_config.webhook_verify_token" />
         </SettingsFieldSection>
       </template>
 
       <!-- Manual Setup Section -->
-      <template v-else>
+      <template v-else-if="!isEmbeddedSignupWhatsApp">
         <SettingsFieldSection
           :label="$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_WEBHOOK_TITLE')"
           :help-text="

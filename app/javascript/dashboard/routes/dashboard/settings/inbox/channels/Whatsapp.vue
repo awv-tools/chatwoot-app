@@ -8,10 +8,13 @@ import CloudWhatsapp from './CloudWhatsapp.vue';
 import WhatsappEmbeddedSignup from './WhatsappEmbeddedSignup.vue';
 import WhatsappZernioSignup from './WhatsappZernioSignup.vue';
 import ChannelSelector from 'dashboard/components/ChannelSelector.vue';
+import { useAccount } from 'dashboard/composables/useAccount';
+import { META_RESTRICTION_STATUS_URL } from 'dashboard/constants/globals';
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { isOnChatwootCloud } = useAccount();
 
 const PROVIDER_TYPES = {
   WHATSAPP: 'whatsapp',
@@ -21,6 +24,10 @@ const PROVIDER_TYPES = {
   WHATSAPP_MANUAL: 'whatsapp_manual',
   THREE_SIXTY_DIALOG: '360dialog',
 };
+
+const isWhatsappEmbeddedSignupRestricted = computed(() => {
+  return isOnChatwootCloud.value;
+});
 
 const hasWhatsappAppId = computed(() => {
   return (
@@ -113,7 +120,11 @@ const handleManualLinkClick = () => {
             hasWhatsappAppId && selectedProvider === PROVIDER_TYPES.WHATSAPP
           "
         >
-          <WhatsappEmbeddedSignup />
+          <WhatsappEmbeddedSignup
+            :is-disabled="isWhatsappEmbeddedSignupRestricted"
+            :show-restriction-alert="isWhatsappEmbeddedSignupRestricted"
+            :restriction-status-url="META_RESTRICTION_STATUS_URL"
+          />
 
           <!-- Manual setup fallback option -->
           <div class="pt-6 mt-6 border-t border-n-weak">

@@ -48,6 +48,10 @@ export default {
     isWhatsAppChannel() {
       return this.inbox?.channel_type === INBOX_TYPES.WHATSAPP;
     },
+    // Null until the inbox is loaded, so the read receipt waits for channel_type
+    whatsAppConversationId() {
+      return this.isWhatsAppChannel ? this.currentChat.id : null;
+    },
     dashboardAppTabs() {
       return [
         {
@@ -78,10 +82,17 @@ export default {
         }
       },
     },
-    'currentChat.id'(newId) {
+    'currentChat.id'() {
       this.fetchLabels();
       this.activeIndex = 0;
-      this.markWhatsAppMessageAsRead(newId);
+    },
+    whatsAppConversationId: {
+      immediate: true,
+      handler(conversationId) {
+        if (conversationId) {
+          ConversationApi.markMessageReadOnProvider(conversationId);
+        }
+      },
     },
   },
   mounted() {
@@ -97,13 +108,6 @@ export default {
     },
     onDashboardAppTabChange(index) {
       this.activeIndex = index;
-    },
-    async markWhatsAppMessageAsRead(conversationId) {
-      if (!conversationId || !this.isWhatsAppChannel) {
-        return;
-      }
-
-      ConversationApi.markMessageReadOnProvider(conversationId);
     },
   },
 };

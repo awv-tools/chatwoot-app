@@ -873,12 +873,14 @@ const menuItems = computed(() => {
               },
             ]
           : []),
-        /* {
+        /*
+        {
           name: 'Settings Audit Logs',
           label: t('SIDEBAR.AUDIT_LOGS'),
           icon: 'i-lucide-briefcase',
           to: accountScopedRoute('auditlogs_list'),
-        }, */
+        }, 
+        */
         /* {
           name: 'Settings Custom Roles',
           label: t('SIDEBAR.CUSTOM_ROLES'),

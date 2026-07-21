@@ -3,16 +3,16 @@ import EmptyState from 'dashboard/components/widgets/EmptyState.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import { onMounted } from 'vue';
 
+const SUPPORT_WHATSAPP_URL = 'https://wa.me/5581989112212';
+
 const toggleSupportWidgetVisibility = () => {
   if (window.$chatwoot) {
     window.$chatwoot.toggleBubbleVisibility('show');
   }
 };
 
-const toggleSupportWidget = () => {
-  if (window.$chatwoot) {
-    window.$chatwoot.toggle();
-  }
+const openSupportWhatsApp = () => {
+  window.open(SUPPORT_WHATSAPP_URL, '_blank', 'noopener');
 };
 
 const setupListenerForWidgetEvent = () => {
@@ -35,9 +35,9 @@ onMounted(() => {
     >
       <div class="flex justify-center">
         <NextButton
-          icon="i-lucide-life-buoy"
+          icon="i-lucide-message-circle"
           :label="$t('SIDEBAR_ITEMS.CONTACT_SUPPORT')"
-          @click="toggleSupportWidget"
+          @click="openSupportWhatsApp"
         />
       </div>
     </EmptyState>

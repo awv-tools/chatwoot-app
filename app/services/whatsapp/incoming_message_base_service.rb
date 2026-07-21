@@ -160,8 +160,7 @@ class Whatsapp::IncomingMessageBaseService
   def attach_files
     return if %w[text button interactive location contacts].include?(message_type)
 
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
+    first_message = messages_data.first
     attachment_payload = first_message&.[](message_type.to_sym) || first_message&.[](message_type)
     return unless attachment_payload
 

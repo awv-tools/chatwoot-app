@@ -17,7 +17,7 @@ class Whatsapp::FacebookApiClient
           client_secret: GlobalConfigService.load('WHATSAPP_APP_SECRET', ''),
           code: code
         }
-      }.merge(proxy_options)
+      }
     )
 
     handle_response(response, 'Token exchange failed')
@@ -26,7 +26,7 @@ class Whatsapp::FacebookApiClient
   def fetch_phone_numbers(waba_id)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/phone_numbers",
-      { query: { access_token: @access_token } }.merge(proxy_options)
+      { query: { access_token: @access_token } }
     )
 
     handle_response(response, 'WABA phone numbers fetch failed')
@@ -40,7 +40,7 @@ class Whatsapp::FacebookApiClient
           input_token: input_token,
           access_token: build_app_access_token
         }
-      }.merge(proxy_options)
+      }
     )
 
     handle_response(response, 'Token validation failed')
@@ -52,7 +52,7 @@ class Whatsapp::FacebookApiClient
       {
         headers: request_headers,
         body: { messaging_product: 'whatsapp', pin: pin.to_s }.to_json
-      }.merge(proxy_options)
+      }
     )
 
     handle_response(response, 'Phone registration failed')
@@ -61,7 +61,7 @@ class Whatsapp::FacebookApiClient
   def phone_number_verified?(phone_number_id)
     response = HTTParty.get(
       "#{BASE_URI}/#{@api_version}/#{phone_number_id}",
-      { headers: request_headers }.merge(proxy_options)
+      { headers: request_headers }
     )
 
     data = handle_response(response, 'Phone status check failed')
@@ -80,7 +80,7 @@ class Whatsapp::FacebookApiClient
   def subscribe_app_to_waba(waba_id, subscribed_fields: WEBHOOK_DEFAULT_FIELDS)
     response = HTTParty.post(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/subscribed_apps",
-      { headers: request_headers, body: { subscribed_fields: subscribed_fields }.to_json }.merge(proxy_options)
+      { headers: request_headers, body: { subscribed_fields: subscribed_fields }.to_json }
     )
 
     handle_response(response, 'App subscription to WABA failed')
@@ -97,7 +97,7 @@ class Whatsapp::FacebookApiClient
             verify_token: verify_token
           }
         }.to_json
-      }.merge(proxy_options)
+      }
     )
 
     handle_response(response, 'Phone number webhook callback override failed')
@@ -113,7 +113,7 @@ class Whatsapp::FacebookApiClient
             override_callback_uri: ''
           }
         }.to_json
-      }.merge(proxy_options)
+      }
     )
 
     handle_response(response, 'Phone number webhook callback clear failed')
@@ -123,7 +123,7 @@ class Whatsapp::FacebookApiClient
   def unsubscribe_app_from_waba(waba_id)
     response = HTTParty.delete(
       "#{BASE_URI}/#{@api_version}/#{waba_id}/subscribed_apps",
-      { headers: request_headers }.merge(proxy_options)
+      { headers: request_headers }
     )
 
     handle_response(response, 'WABA app unsubscription failed')
@@ -148,24 +148,5 @@ class Whatsapp::FacebookApiClient
     raise "#{error_message}: #{response.body}" unless response.success?
 
     response.parsed_response
-  end
-
-  # Permite encaminhar todas as chamadas Graph API por um proxy local pra debug.
-  def proxy_options
-    proxy = ENV.fetch('PROXY_URL', '')
-    return {} if proxy.blank?
-
-    uri = URI.parse(proxy)
-    return {} if uri.host.blank?
-
-    {
-      http_proxyaddr: uri.host,
-      http_proxyport: uri.port,
-      http_proxyuser: uri.user,
-      http_proxypass: uri.password,
-      verify: false
-    }.compact
-  rescue URI::InvalidURIError
-    {}
   end
 end

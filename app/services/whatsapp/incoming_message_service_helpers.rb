@@ -27,8 +27,7 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def message_type
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    message = messages_array.first
+    message = messages_data.first
     message[:type] || message['type']
   end
 
@@ -93,35 +92,9 @@ module Whatsapp::IncomingMessageServiceHelpers
     @message = Message.find_by(source_id: source_id)
   end
 
-  def message_under_process?
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
-    message_id = first_message&.[](:id) || first_message&.[]('id')
-    return false unless message_id
+  def lock_message_source_id!
+    return false if messages_data.blank?
 
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
-    Redis::Alfred.get(key)
-  end
-
-  def cache_message_source_id_in_redis
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    return if messages_array.blank?
-
-    first_message = messages_array.first
-    message_id = first_message[:id] || first_message['id']
-    return unless message_id
-
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
-    ::Redis::Alfred.setex(key, true)
-  end
-
-  def clear_message_source_id_from_redis
-    messages_array = @processed_params[:messages] || @processed_params['messages']
-    first_message = messages_array&.first
-    message_id = first_message&.[](:id) || first_message&.[]('id')
-    return unless message_id
-
-    key = format(Redis::RedisKeys::MESSAGE_SOURCE_KEY, id: message_id)
-    ::Redis::Alfred.delete(key)
+    Whatsapp::MessageDedupLock.new(messages_data.first[:id]).acquire!
   end
 end

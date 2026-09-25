@@ -8,11 +8,7 @@ class Conversations::MarkMessageReadOnProviderService
   def perform
     return unless @channel.respond_to?(:provider_service)
 
-    if provider_service.respond_to?(:mark_message_read, true)
-      mark_via_dedicated_endpoint
-    elsif provider_service.respond_to?(:fetch_conversation_messages, true)
-      mark_via_fetch_side_effect
-    end
+    mark_via_dedicated_endpoint if provider_service.respond_to?(:mark_message_read, true)
   rescue StandardError
     nil
   end
@@ -24,14 +20,6 @@ class Conversations::MarkMessageReadOnProviderService
     return unless last_incoming_message.present?
 
     provider_service.send(:mark_message_read, last_incoming_message.source_id)
-  end
-
-  # Zernio: GET conversation messages doubles as mark-as-read + WhatsApp read receipt.
-  def mark_via_fetch_side_effect
-    zernio_conv_id = @conversation.additional_attributes&.dig('zernio_conversation_id')
-    return if zernio_conv_id.blank?
-
-    provider_service.send(:fetch_conversation_messages, zernio_conv_id)
   end
 
   def find_last_incoming_message

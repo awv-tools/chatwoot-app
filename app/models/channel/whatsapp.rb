@@ -41,11 +41,6 @@ class Channel::Whatsapp < ApplicationRecord
     'Whatsapp'
   end
 
-  # Metadata marker only — identifies channels provisioned via Zernio (used by frontend reauth path).
-  def zernio_gateway?
-    provider_config.is_a?(Hash) && provider_config['gateway'] == 'zernio'
-  end
-
   # Mirrors Channel::TwilioSms#voice_enabled? so the call subsystem can duck-type across providers.
   # Meta's Calling API is available to any whatsapp_cloud inbox (embedded-signup or manual keys);
   # only 360dialog (default provider) can't reach the call APIs.
@@ -68,20 +63,9 @@ class Channel::Whatsapp < ApplicationRecord
   end
 
   def provider_service
-    return zernio_provider_service if zernio_gateway?
     return Whatsapp::Providers::WhatsappCloudService.new(whatsapp_channel: self) if provider == 'whatsapp_cloud'
 
     Whatsapp::Providers::Whatsapp360DialogService.new(whatsapp_channel: self)
-  end
-
-  def zernio_provider_service
-    klass = direct_meta_active? ? Whatsapp::Providers::WhatsappCloudService : Whatsapp::Providers::ZernioService
-    klass.new(whatsapp_channel: self)
-  end
-
-  # Direct-meta runtime requires the toggle on AND a usable Meta token on the channel.
-  def direct_meta_active?
-    Whatsapp::Providers::ZernioService.direct_meta_enabled? && provider_config['api_key'].present?
   end
 
   # Enables voice: turns calling on at Meta (idempotent), then re-registers webhooks
@@ -128,8 +112,6 @@ class Channel::Whatsapp < ApplicationRecord
   delegate :api_headers, to: :provider_service
 
   def setup_webhooks
-    return if zernio_gateway?
-
     perform_webhook_setup
   rescue StandardError => e
     Rails.logger.error "[WHATSAPP] Webhook setup failed: #{e.message}"
@@ -139,7 +121,6 @@ class Channel::Whatsapp < ApplicationRecord
   private
 
   def ensure_webhook_verify_token
-    # Zernio channels need the token too — Meta validates override callback against it.
     provider_config['webhook_verify_token'] ||= SecureRandom.hex(16) if provider == 'whatsapp_cloud'
   end
 
@@ -165,17 +146,12 @@ class Channel::Whatsapp < ApplicationRecord
   end
 
   def teardown_webhooks
-    return if zernio_gateway?
-
     Whatsapp::WebhookTeardownService.new(self).perform
   end
 
   def should_auto_setup_webhooks?
     # Only auto-setup webhooks for whatsapp_cloud provider with manual setup
     # Embedded signup calls setup_webhooks explicitly in EmbeddedSignupService
-    # Zernio gateway has its own webhook configured once on Zernio dashboard, not per channel
-    return false if zernio_gateway?
-
     provider == 'whatsapp_cloud' && provider_config['source'] != 'embedded_signup'
   end
 end

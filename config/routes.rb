@@ -531,10 +531,6 @@ Rails.application.routes.draw do
               get :grouped_conversation_metrics
             end
           end
-
-          post 'zernio/authorize', to: 'zernio#authorize'
-          get 'zernio/select_phone', to: 'zernio#select_phone_data'
-          post 'zernio/select_phone', to: 'zernio#select_phone'
         end
       end
     end
@@ -646,7 +642,6 @@ Rails.application.routes.draw do
   post 'webhooks/sms/:phone_number', to: 'webhooks/sms#process_payload'
   get 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#verify'
   post 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#process_payload'
-  post 'webhooks/zernio', to: 'webhooks/zernio#process_payload'
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
@@ -675,9 +670,6 @@ Rails.application.routes.draw do
       post 'voice/recording_status/:phone', to: 'voice#recording_status', as: :voice_recording_status
     end
   end
-
-  # State como path segment porque o Zernio anexa params com '?' (em vez de '&'), corrompendo query string.
-  get 'zernio/callback/:state', to: 'zernio_callback#show'
 
   get 'microsoft/callback', to: 'microsoft/callbacks#show'
   get 'google/callback', to: 'google/callbacks#show'

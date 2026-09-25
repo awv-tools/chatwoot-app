@@ -327,24 +327,6 @@
           "STATUS_LINK": "View status update",
           "CALLING_ENABLE_FAILED": "Your WhatsApp inbox is ready, but voice calling couldn't be turned on — this number isn't enrolled in the WhatsApp Business Calling API yet. Reach out to Meta or your WhatsApp Business Solution Provider to onboard it, then turn calling on from the inbox's Calls settings."
         },
-        "ZERNIO": {
-          "SELECT_PHONE": {
-            "TITLE": "Choose the WhatsApp number to connect",
-            "DESC": "These are the WhatsApp numbers available in your Meta Business account. Select the one you want to connect to this inbox.",
-            "FILTER_PLACEHOLDER": "Filter by number",
-            "EMPTY": "No numbers match your filter",
-            "CANCEL": "Cancel",
-            "ERROR": "Could not complete the connection. Please try again.",
-            "QUALITY_LABEL": "Quality",
-            "QUALITY": {
-              "GREEN": "High",
-              "YELLOW": "Medium",
-              "RED": "Low",
-              "UNKNOWN": "Unknown",
-              "NA": "Unavailable"
-            }
-          }
-        },
         "API": {
           "ERROR_MESSAGE": "We were not able to save the WhatsApp channel"
         }

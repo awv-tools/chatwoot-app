@@ -26,7 +26,7 @@ class Whatsapp::ReauthorizationService
   private
 
   def update_channel_config(channel, access_token, phone_info)
-    # Full replace drops legacy Zernio fields; webhook_verify_token is regenerated before_validation.
+    # Full replace; webhook_verify_token is regenerated before_validation.
     # Legacy clients may omit phone_number_id; fall back to the value just fetched from Meta.
     resolved_phone_number_id = @phone_number_id.presence || phone_info[:phone_number_id]
 

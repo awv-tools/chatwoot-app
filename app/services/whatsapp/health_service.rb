@@ -8,53 +8,16 @@ class Whatsapp::HealthService
   end
 
   def fetch_health_status
-    return fetch_zernio_health_data if @channel&.zernio_gateway? && !direct_meta_active?
-
     validate_channel!
     fetch_phone_health_data
   end
 
   private
 
-  def direct_meta_active?
-    Whatsapp::Providers::ZernioService.direct_meta_enabled? && @channel.provider_config['api_key'].present?
-  end
-
   def validate_channel!
     raise ArgumentError, 'Channel is required' if @channel.blank?
     raise ArgumentError, 'API key is missing' if @access_token.blank?
     raise ArgumentError, 'Phone number ID is missing' if @channel.provider_config['phone_number_id'].blank?
-  end
-
-  def fetch_zernio_health_data
-    account_id = @channel.provider_config['account_id']
-    raise ArgumentError, 'Zernio account_id is missing' if account_id.blank?
-
-    accounts = Whatsapp::Providers::ZernioService.list_accounts
-    account = accounts.find { |a| a['_id'] == account_id }
-    raise "Zernio account not found: #{account_id}" if account.blank?
-
-    format_zernio_health(account)
-  end
-
-  # Mapeia o account do Zernio (com metadata) pra shape esperada pelo front (campos snake_case do Cloud).
-  def format_zernio_health(data)
-    return {} unless data.is_a?(Hash)
-
-    metadata = data['metadata'] || {}
-    {
-      id: data['_id'],
-      display_phone_number: metadata['displayPhoneNumber'] || data['username'],
-      verified_name: metadata['verifiedName'] || data['displayName'],
-      name_status: metadata['nameStatus'],
-      quality_rating: metadata['qualityRating'],
-      messaging_limit_tier: metadata['messagingLimitTier'],
-      account_mode: data['isActive'] ? 'LIVE' : 'SANDBOX',
-      platform_type: data['platform'],
-      permissions: data['permissions'],
-      business_id: metadata['wabaId'],
-      gateway: 'zernio'
-    }
   end
 
   def fetch_phone_health_data

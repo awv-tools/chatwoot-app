@@ -59,19 +59,6 @@ RSpec.describe Channel::Whatsapp do
   describe '#provider_service' do
     let(:account) { create(:account) }
 
-    context 'when provider_config has gateway=zernio' do
-      let(:channel) do
-        create(:channel_whatsapp, account: account,
-                                  provider: 'whatsapp_cloud',
-                                  provider_config: { 'gateway' => 'zernio', 'account_id' => 'a' },
-                                  validate_provider_config: false, sync_templates: false)
-      end
-
-      it 'returns ZernioService regardless of provider value' do
-        expect(channel.provider_service).to be_a(Whatsapp::Providers::ZernioService)
-      end
-    end
-
     context 'when provider is whatsapp_cloud without gateway' do
       let(:channel) do
         create(:channel_whatsapp, account: account, provider: 'whatsapp_cloud',
@@ -91,33 +78,6 @@ RSpec.describe Channel::Whatsapp do
       it 'returns Whatsapp360DialogService' do
         expect(channel.provider_service).to be_a(Whatsapp::Providers::Whatsapp360DialogService)
       end
-    end
-  end
-
-  describe 'zernio gateway webhook guards' do
-    let(:account) { create(:account) }
-    let(:channel) do
-      create(:channel_whatsapp, account: account, provider: 'whatsapp_cloud',
-                                provider_config: { 'gateway' => 'zernio', 'account_id' => 'a' },
-                                validate_provider_config: false, sync_templates: false)
-    end
-
-    it 'should_auto_setup_webhooks? returns false' do
-      expect(channel.send(:should_auto_setup_webhooks?)).to be(false)
-    end
-
-    it 'setup_webhooks does not invoke WebhookSetupService' do
-      expect(Whatsapp::WebhookSetupService).not_to receive(:new)
-      channel.setup_webhooks
-    end
-
-    it 'teardown_webhooks does not invoke WebhookTeardownService' do
-      expect(Whatsapp::WebhookTeardownService).not_to receive(:new)
-      channel.send(:teardown_webhooks)
-    end
-
-    it 'does not generate webhook_verify_token' do
-      expect(channel.provider_config).not_to have_key('webhook_verify_token')
     end
   end
 

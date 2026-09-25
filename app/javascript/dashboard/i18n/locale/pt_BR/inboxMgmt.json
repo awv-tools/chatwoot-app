@@ -321,24 +321,6 @@
           "MANUAL_LINK_TEXT": "fluxo de configuração manual",
           "CALLING_ENABLE_FAILED": "Sua caixa de entrada do WhatsApp está pronta, mas as chamadas de voz não puderam ser ativadas — este número ainda não está cadastrado na API de Chamadas do WhatsApp Business. Entre em contato com a Meta ou com seu provedor de soluções WhatsApp Business para realizar o cadastro e, depois, ative as chamadas nas configurações de Chamadas da caixa de entrada."
         },
-        "ZERNIO": {
-          "SELECT_PHONE": {
-            "TITLE": "Escolha o número do WhatsApp para conectar",
-            "DESC": "Estes são os números do WhatsApp disponíveis na sua conta Meta Business. Selecione o que deseja conectar a esta caixa de entrada.",
-            "FILTER_PLACEHOLDER": "Filtrar pelo número",
-            "EMPTY": "Nenhum número corresponde ao filtro",
-            "CANCEL": "Cancelar",
-            "ERROR": "Não foi possível concluir a conexão. Tente novamente.",
-            "QUALITY_LABEL": "Qualidade",
-            "QUALITY": {
-              "GREEN": "Alta",
-              "YELLOW": "Média",
-              "RED": "Baixa",
-              "UNKNOWN": "Desconhecida",
-              "NA": "Indisponível"
-            }
-          }
-        },
         "API": {
           "ERROR_MESSAGE": "Não foi possível salvar o canal do WhatsApp"
         }

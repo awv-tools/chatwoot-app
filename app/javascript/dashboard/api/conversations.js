@@ -22,6 +22,10 @@ class ConversationApi extends ApiClient {
       });
   }
 
+  getSuggestions(conversationID, type) {
+    return axios.get(`${this.url}/${conversationID}/suggestions/${type}`);
+  }
+
   getUnreadCounts() {
     return axios.get(`${this.url}/unread_counts`);
   }

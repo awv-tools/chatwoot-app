@@ -1,17 +1,22 @@
 <script>
-import { ref, provide, useTemplateRef } from 'vue';
-import { useElementSize } from '@vueuse/core';
+import { ref, provide, inject, nextTick, useTemplateRef } from 'vue';
+import { useElementSize, useEventListener } from '@vueuse/core';
 // composable
 import { useLabelSuggestions } from 'dashboard/composables/useLabelSuggestions';
+import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
 import { useSnakeCase } from 'dashboard/composables/useTransformKeys';
+import { CONTACT_CONVERSATION_NAVIGATION } from 'dashboard/composables/useContactConversationNavigation';
 
 // components
 import ReplyBox from './ReplyBox.vue';
 import MessageList from 'next/message/MessageList.vue';
 import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
+import ContactConversationLink from './ContactConversationLink.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import OlderConversationBar from './OlderConversationBar.vue';
 import ResizableEditorWrapper from './ResizableEditorWrapper.vue';
+import ReferralBubble from 'dashboard/components-next/Conversation/ReferralBubble.vue';
 
 // stores and apis
 import { mapGetters } from 'vuex';
@@ -32,6 +37,7 @@ import {
 
 // constants
 import { BUS_EVENTS } from 'shared/constants/busEvents';
+import { CMD_AI_ASSIST } from 'dashboard/helper/commandbar/events';
 import { REPLY_POLICY } from 'shared/constants/links';
 import wootConstants, {
   META_RESTRICTION_STATUS_URL,
@@ -45,13 +51,17 @@ export default {
     ReplyBox,
     Banner,
     ConversationLabelSuggestion,
+    ContactConversationLink,
     Spinner,
+    OlderConversationBar,
     ResizableEditorWrapper,
+    ReferralBubble,
   },
   mixins: [inboxMixin],
   setup() {
     const conversationPanelRef = ref(null);
     const resizableEditorWrapperRef = ref(null);
+    const replyBoxRef = ref(null);
     const messagesViewRef = useTemplateRef('messagesViewRef');
     const topBannerRef = useTemplateRef('topBannerRef');
     const { height: containerHeight } = useElementSize(messagesViewRef);
@@ -63,14 +73,50 @@ export default {
       getLabelSuggestions,
     } = useLabelSuggestions();
 
+    const {
+      olderConversation,
+      newerConversation,
+      isReadingHistory,
+      isReplyRevealed,
+      latestConversation,
+      leaveReadingMode,
+      openConversation,
+      buildConversationPath,
+    } = inject(CONTACT_CONVERSATION_NAVIGATION);
+
     provide('contextMenuElementTarget', conversationPanelRef);
+
+    // The editor focuses itself on these shortcuts, but only once it is shown.
+    const revealReplyBox = () => {
+      if (!isReadingHistory.value) return;
+      leaveReadingMode();
+      nextTick(() => replyBoxRef.value?.messageEditor?.focusEditorInputField());
+    };
+    useKeyboardEvents({
+      'Alt+KeyP': { action: revealReplyBox, allowOnFocusedInput: false },
+      'Alt+KeyL': { action: revealReplyBox, allowOnFocusedInput: false },
+    });
+    // ReplyBox attaches pasted files from anywhere on the page, folded or not.
+    useEventListener(document, 'paste', e => {
+      if (e.clipboardData?.files.length) revealReplyBox();
+    });
 
     return {
       captainTasksEnabled,
       getLabelSuggestions,
       isLabelSuggestionFeatureEnabled,
+      olderConversation,
+      newerConversation,
+      openConversation,
+      buildConversationPath,
+      isReadingHistory,
+      isReplyRevealed,
+      latestConversation,
+      leaveReadingMode,
+      revealReplyBox,
       conversationPanelRef,
       resizableEditorWrapperRef,
+      replyBoxRef,
       messagesViewRef,
       topBannerRef,
       containerHeight,
@@ -95,7 +141,7 @@ export default {
       currentUserId: 'getCurrentUserID',
       listLoadingStatus: 'getAllMessagesLoaded',
       currentAccountId: 'getCurrentAccountId',
-      isOnChatwootCloud: 'globalConfig/isOnChatwootCloud',
+      isMetaMessageSendingDisabled: 'globalConfig/isMetaMessageSendingDisabled',
     }),
     isOpen() {
       return this.currentChat?.status === wootConstants.STATUS_TYPE.OPEN;
@@ -140,6 +186,9 @@ export default {
       }
       return messages;
     },
+    referralData() {
+      return this.currentChat?.additional_attributes?.referral || null;
+    },
     readMessages() {
       return getReadMessages(
         this.getMessages,
@@ -174,12 +223,11 @@ export default {
       );
     },
     isInstagramRestrictionBannerVisible() {
-      return this.isOnChatwootCloud && this.isAnInstagramChannel;
+      return this.isMetaMessageSendingDisabled && this.isAnInstagramChannel;
     },
     instagramRestrictionStatusUrl() {
       return META_RESTRICTION_STATUS_URL;
     },
-
     replyWindowBannerMessage() {
       if (this.isAWhatsAppChannel) {
         return this.$t('CONVERSATION.TWILIO_WHATSAPP_CAN_REPLY');
@@ -265,6 +313,15 @@ export default {
       this.messageSentSinceOpened = false;
       this.resetReplyEditorHeight();
     },
+    // The link is appended once the neighbours arrive, below an already scrolled list.
+    newerConversation(conversation) {
+      if (!conversation) return;
+      this.$nextTick(() => {
+        if (!this.$route.query.messageId && !this.hasUserScrolled) {
+          this.scrollToBottom();
+        }
+      });
+    },
   },
 
   created() {
@@ -274,6 +331,10 @@ export default {
     emitter.on(BUS_EVENTS.MESSAGE_SENT, () => {
       this.messageSentSinceOpened = true;
     });
+    // Anything that wants to write must bring the folded editor back first.
+    emitter.on(BUS_EVENTS.TOGGLE_REPLY_TO_MESSAGE, this.leaveReadingMode);
+    emitter.on(BUS_EVENTS.INSERT_INTO_RICH_EDITOR, this.leaveReadingMode);
+    emitter.on(CMD_AI_ASSIST, this.leaveReadingMode);
   },
 
   mounted() {
@@ -334,6 +395,9 @@ export default {
     },
     removeBusListeners() {
       emitter.off(BUS_EVENTS.SCROLL_TO_MESSAGE, this.onScrollToMessage);
+      emitter.off(BUS_EVENTS.TOGGLE_REPLY_TO_MESSAGE, this.leaveReadingMode);
+      emitter.off(BUS_EVENTS.INSERT_INTO_RICH_EDITOR, this.leaveReadingMode);
+      emitter.off(CMD_AI_ASSIST, this.leaveReadingMode);
     },
     onScrollToMessage({ messageId = '' } = {}) {
       this.$nextTick(() => {
@@ -466,13 +530,13 @@ export default {
       <Banner
         v-if="isInstagramRestrictionBannerVisible"
         color-scheme="warning"
-        class="mx-2 mt-2 overflow-hidden rounded-lg"
+        class="mx-2 mt-2 min-h-12 !h-auto rounded-lg"
         :banner-message="$t('CONVERSATION.INSTAGRAM_RESTRICTION_BANNER')"
         :href-link="instagramRestrictionStatusUrl"
         :href-link-text="$t('CONVERSATION.INSTAGRAM_RESTRICTION_STATUS_LINK')"
       />
       <Banner
-        v-else-if="!currentChat.can_reply"
+        v-if="!currentChat.can_reply"
         color-scheme="alert"
         class="mx-2 mt-2 overflow-hidden rounded-lg"
         :banner-message="replyWindowBannerMessage"
@@ -480,7 +544,7 @@ export default {
         :href-link-text="replyWindowLinkText"
       />
       <Banner
-        v-else-if="hasDuplicateInstagramInbox"
+        v-if="hasDuplicateInstagramInbox"
         color-scheme="alert"
         class="mx-2 mt-2 overflow-hidden rounded-lg"
         :banner-message="$t('CONVERSATION.OLD_INSTAGRAM_INBOX_REPLY_BANNER')"
@@ -488,7 +552,8 @@ export default {
     </div>
     <MessageList
       ref="conversationPanelRef"
-      class="conversation-panel flex-shrink flex-grow basis-px flex flex-col overflow-y-auto relative h-full m-0 pb-4"
+      class="conversation-panel flex-shrink flex-grow basis-px flex flex-col overflow-y-auto relative h-full m-0"
+      :class="isReadingHistory ? 'pb-16' : 'pb-4'"
       :current-user-id="currentUserId"
       :first-unread-id="unReadMessages[0]?.id"
       :is-an-email-channel="isAnEmailChannel"
@@ -505,6 +570,18 @@ export default {
             <Spinner v-if="shouldShowSpinner" class="text-n-brand" />
           </li>
         </transition>
+        <ContactConversationLink
+          v-if="olderConversation && listLoadingStatus"
+          direction="older"
+          :conversation="olderConversation"
+          :to="
+            buildConversationPath(olderConversation.id, {
+              keepFolderScope: false,
+            })
+          "
+          @navigate="openConversation(olderConversation)"
+        />
+        <ReferralBubble v-if="referralData" :referral="referralData" />
       </template>
       <template #unreadBadge>
         <li
@@ -525,12 +602,24 @@ export default {
           :chat-labels="currentChat.labels"
           :conversation-id="currentChat.id"
         />
+        <ContactConversationLink
+          v-if="newerConversation"
+          direction="newer"
+          :conversation="newerConversation"
+          :to="
+            buildConversationPath(newerConversation.id, {
+              keepFolderScope: false,
+            })
+          "
+          @navigate="openConversation(newerConversation)"
+        />
       </template>
     </MessageList>
     <div class="flex relative flex-col bg-n-surface-1">
       <div
         v-if="isAnyoneTyping"
-        class="absolute flex items-center w-full h-0 -top-7"
+        class="absolute flex items-center w-full h-0"
+        :class="isReadingHistory ? '-top-[5.5rem]' : '-top-7'"
       >
         <div
           class="flex py-2 pr-4 pl-5 shadow-md rounded-full bg-white dark:bg-n-solid-3 text-n-slate-11 text-xs font-semibold my-2.5 mx-auto"
@@ -543,11 +632,23 @@ export default {
           />
         </div>
       </div>
+      <OlderConversationBar
+        v-if="isReadingHistory"
+        class="absolute inset-x-2 bottom-2 z-10"
+        :has-latest="Boolean(latestConversation)"
+        @reply="revealReplyBox"
+        @go-to-latest="openConversation(latestConversation)"
+      />
       <ResizableEditorWrapper
+        v-show="!isReadingHistory"
         ref="resizableEditorWrapperRef"
+        :class="{ 'animate-fade-in-up': isReplyRevealed }"
         :container-height="Math.max(0, containerHeight - topBannerHeight)"
       >
-        <ReplyBox @toggle-editor-size="toggleReplyEditorSize" />
+        <ReplyBox
+          ref="replyBoxRef"
+          @toggle-editor-size="toggleReplyEditorSize"
+        />
       </ResizableEditorWrapper>
     </div>
   </div>

@@ -104,6 +104,20 @@ module Whatsapp::IncomingMessageServiceHelpers
     message[:referral]&.to_h&.deep_stringify_keys || {}
   end
 
+  # `referral` keeps the first ad (read by cumpra-ai); `referrals` accumulates every ad that brought the contact back
+  def attach_conversation_referral(message)
+    referral = referral_attributes(message)
+    return unless referral['source_type'] == 'ad'
+
+    attributes = @conversation.additional_attributes
+    @conversation.update!(
+      additional_attributes: attributes.merge(
+        'referral' => attributes['referral'] || referral,
+        'referrals' => Array(attributes['referrals']) + [referral.merge('timestamp' => message[:timestamp])]
+      )
+    )
+  end
+
   def find_message_by_source_id(source_id)
     return unless source_id
 

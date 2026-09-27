@@ -95,6 +95,7 @@ class Whatsapp::IncomingMessageBaseService
     log_error(message) && return if error_webhook_event?(message)
 
     process_in_reply_to(message)
+    attach_conversation_referral(message)
 
     message_type == 'contacts' ? create_contact_messages(message) : create_regular_message(message)
   end
@@ -115,7 +116,6 @@ class Whatsapp::IncomingMessageBaseService
     create_message(message, source_id: message[:id])
     attach_files
     attach_location if message_type == 'location'
-    attach_referral_data(message)
     attach_interactive_data(message)
     @message.save!
   end
@@ -185,17 +185,6 @@ class Whatsapp::IncomingMessageBaseService
       fallback_title: location_name,
       external_url: location['url']
     )
-  end
-
-  def attach_referral_data(message)
-    # Normalize ad_attribution_details to referral if needed
-    # Check both string and symbol keys since webhook data comes as JSON (strings)
-    referral_data = message.dig(:referral) || message.dig('referral') || message.dig(:ad_attribution_details) || message.dig('ad_attribution_details')
-
-    return unless referral_data.present?
-
-    @message.additional_attributes ||= {}
-    @message.additional_attributes['referral'] = referral_data
   end
 
   def attach_interactive_data(message)

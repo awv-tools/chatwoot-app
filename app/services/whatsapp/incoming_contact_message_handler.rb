@@ -5,7 +5,6 @@ module Whatsapp::IncomingContactMessageHandler
       # Pass source_id from parent message since contact objects don't have :id
       create_message(contact, source_id: message[:id], content_attributes_source: message)
       attach_contact(contact, contact_info_response_handled: message[:contact_info_response_handled])
-      attach_referral_data(message)
       attach_interactive_data(message)
       @message.save!
     end

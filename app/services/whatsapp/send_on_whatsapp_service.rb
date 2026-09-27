@@ -47,7 +47,14 @@ class Whatsapp::SendOnWhatsappService < Base::SendOnChannelService
                                          lang_code: lang_code,
                                          parameters: processed_parameters
                                        }, message)
-    message.update!(source_id: message_id) if message_id.present?
+    update_sent_template_message(message_id, processor.template) if message_id.present?
+  end
+
+  def update_sent_template_message(message_id, template)
+    snapshot = Whatsapp::TemplateSnapshotBuilder.new(template: template, processed_params: template_params['processed_params']).perform
+    attributes = { source_id: message_id }
+    attributes[:content_attributes] = message.content_attributes.merge(template: snapshot) if snapshot
+    message.update!(attributes)
   end
 
   def send_session_message

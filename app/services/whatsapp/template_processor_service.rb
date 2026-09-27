@@ -7,7 +7,19 @@ class Whatsapp::TemplateProcessorService
     process_template_with_params
   end
 
+  def template
+    @template ||= find_template
+  end
+
   private
+
+  def find_template
+    channel.message_templates.find do |t|
+      t['name'] == template_params['name'] &&
+        t['language']&.downcase == template_params['language']&.downcase &&
+        t['status']&.downcase == 'approved'
+    end
+  end
 
   def process_template_with_params
     [
@@ -18,16 +30,7 @@ class Whatsapp::TemplateProcessorService
     ]
   end
 
-  def find_template
-    channel.message_templates.find do |t|
-      t['name'] == template_params['name'] &&
-        t['language']&.downcase == template_params['language']&.downcase &&
-        t['status']&.downcase == 'approved'
-    end
-  end
-
   def processed_templates_params
-    template = find_template
     return if template.blank?
 
     # Convert legacy format to enhanced format before processing

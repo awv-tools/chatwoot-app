@@ -4,6 +4,7 @@ import BaseBubble from 'next/message/bubbles/Base.vue';
 import FormattedContent from './FormattedContent.vue';
 import AttachmentChips from 'next/message/chips/AttachmentChips.vue';
 import TranslationToggle from 'dashboard/components-next/message/TranslationToggle.vue';
+import TemplateButtons from './TemplateButtons.vue';
 import { MESSAGE_TYPES } from '../../constants';
 import { MESSAGE_STATUS } from 'shared/constants/messages';
 import { useMessageContext } from '../../provider.js';
@@ -33,6 +34,8 @@ const isTemplate = computed(() => {
   return messageType.value === MESSAGE_TYPES.TEMPLATE;
 });
 
+const template = computed(() => contentAttributes.value?.template);
+
 const contactInfoRequestState = computed(() => {
   if (status.value === MESSAGE_STATUS.FAILED) return null;
 
@@ -54,7 +57,50 @@ const handleSeeOriginal = () => {
       <span v-if="isEmpty" class="text-n-slate-11">
         {{ $t('CONVERSATION.NO_CONTENT') }}
       </span>
+      <template v-if="template?.header">
+        <span
+          v-if="template.header.format === 'TEXT'"
+          class="font-semibold text-n-slate-12"
+        >
+          {{ template.header.text }}
+        </span>
+        <img
+          v-else-if="
+            template.header.format === 'IMAGE' && template.header.mediaUrl
+          "
+          :src="template.header.mediaUrl"
+          :alt="template.header.mediaName"
+          class="max-h-64 rounded-lg object-cover"
+        />
+        <video
+          v-else-if="
+            template.header.format === 'VIDEO' && template.header.mediaUrl
+          "
+          :src="template.header.mediaUrl"
+          controls
+          class="max-h-64 rounded-lg"
+        />
+        <a
+          v-else-if="
+            template.header.format === 'DOCUMENT' && template.header.mediaUrl
+          "
+          :href="template.header.mediaUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-n-alpha-2 text-sm text-n-slate-12"
+        >
+          <span class="i-lucide-file-text size-4 shrink-0" />
+          <span class="truncate">{{ template.header.mediaName }}</span>
+        </a>
+      </template>
       <FormattedContent v-if="renderContent" :content="renderContent" />
+      <span v-if="template?.footer" class="text-xs text-n-slate-11">
+        {{ template.footer }}
+      </span>
+      <TemplateButtons
+        v-if="template?.buttons?.length"
+        :buttons="template.buttons"
+      />
       <span
         v-if="contactInfoRequestState === 'pending'"
         class="text-xs font-medium text-n-slate-11"

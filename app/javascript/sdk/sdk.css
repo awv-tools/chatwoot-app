@@ -74,7 +74,7 @@
 }
 
 .woot-widget-bubble.woot-widget-bubble--flat svg {
-  margin: 16px !important;
+  margin: 13px !important;
 }
 
 .woot-widget-bubble.woot-widget-bubble--flat.woot--close::before,
@@ -153,10 +153,10 @@
 
 .woot-widget-bubble svg {
   all: revert;
-  height: 24px !important;
-  margin: 20px !important;
+  height: 30px !important;
+  margin: 17px !important;
   padding: 0 !important;
-  width: 24px !important;
+  width: 30px !important;
 }
 
 .woot-widget-bubble.woot-widget-bubble-color--lighter path {

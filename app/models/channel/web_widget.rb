@@ -100,6 +100,14 @@ class Channel::WebWidget < ApplicationRecord
     }
   end
 
+  def valid_identifier_hash?(identifier, identifier_hash)
+    expected_hash = OpenSSL::HMAC.hexdigest('sha256', hmac_token, identifier.to_s)
+    identifier_hash = identifier_hash.to_s
+    return false unless identifier_hash.bytesize == expected_hash.bytesize
+
+    ActiveSupport::SecurityUtils.secure_compare(identifier_hash, expected_hash)
+  end
+
   def create_contact_inbox(additional_attributes = {})
     ::ContactInboxWithContactBuilder.new({
                                            inbox: inbox,

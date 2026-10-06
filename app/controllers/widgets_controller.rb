@@ -7,6 +7,7 @@ class WidgetsController < ActionController::Base
   before_action :ensure_account_is_active
   before_action :skip_crawler_requests
   before_action :ensure_location_is_supported
+  before_action :identify_contact_from_link, if: -> { permitted_params[:identifier].present? }
   before_action :set_token
   before_action :set_contact
   before_action :build_contact
@@ -30,6 +31,31 @@ class WidgetsController < ActionController::Base
   rescue ActiveRecord::RecordNotFound
     Rails.logger.error('web widget does not exist')
     render json: { error: 'web widget does not exist' }, status: :not_found
+  end
+
+  # Redirect drops identifier params, which the widget would otherwise append to every API call
+  def identify_contact_from_link
+    identifier = permitted_params[:identifier]
+    unless @web_widget.valid_identifier_hash?(identifier, permitted_params[:identifier_hash])
+      return render json: { error: 'HMAC failed: Invalid Identifier Hash Provided' }, status: :unauthorized
+    end
+
+    contact_inbox = @web_widget.inbox.contact_inboxes.joins(:contact).find_by(hmac_verified: true, contacts: { identifier: identifier })
+    contact_inbox ||= create_identified_contact_inbox(identifier)
+
+    token = ::Widget::TokenService.new(payload: { source_id: contact_inbox.source_id, inbox_id: @web_widget.inbox.id }).generate_token
+    redirect_to widget_path(website_token: @web_widget.website_token, cw_conversation: token, locale: permitted_params[:locale].presence)
+  end
+
+  def create_identified_contact_inbox(identifier)
+    contact_inbox, = build_contact_inbox_with_token(@web_widget, additional_attributes)
+    contact_inbox.update!(hmac_verified: true)
+    ContactIdentifyAction.new(
+      contact: contact_inbox.contact,
+      params: { identifier: identifier, phone_number: "+#{identifier}" },
+      discard_invalid_attrs: true
+    ).perform
+    contact_inbox
   end
 
   def set_token
@@ -82,7 +108,7 @@ class WidgetsController < ActionController::Base
   end
 
   def permitted_params
-    params.permit(:website_token, :cw_conversation)
+    params.permit(:website_token, :cw_conversation, :identifier, :identifier_hash, :locale)
   end
 
   def allow_iframe_requests

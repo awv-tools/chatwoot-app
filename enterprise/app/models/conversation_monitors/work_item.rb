@@ -2,22 +2,24 @@
 #
 # Table name: conversation_monitor_work_items
 #
-#  id                    :bigint           not null, primary key
-#  activity_at           :datetime
-#  attempts              :integer          default(0), not null
-#  due_at                :datetime
-#  error_code            :string
-#  full_history_revision :bigint           default(0), not null
-#  generation            :bigint           default(0), not null
-#  lease_expires_at      :datetime
-#  lease_token           :string
-#  processed_revision    :bigint           default(0), not null
-#  requested_at          :datetime
-#  revision              :bigint           default(0), not null
-#  created_at            :datetime         not null
-#  updated_at            :datetime         not null
-#  account_id            :bigint           not null
-#  conversation_id       :bigint           not null
+#  id                     :bigint           not null, primary key
+#  activity_at            :datetime
+#  attempts               :integer          default(0), not null
+#  due_at                 :datetime
+#  error_code             :string
+#  full_history_revision  :bigint           default(0), not null
+#  generation             :bigint           default(0), not null
+#  lease_expires_at       :datetime
+#  lease_token            :string
+#  live_activity_at       :datetime
+#  live_activity_revision :bigint           default(0), not null
+#  processed_revision     :bigint           default(0), not null
+#  requested_at           :datetime
+#  revision               :bigint           default(0), not null
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  account_id             :bigint           not null
+#  conversation_id        :bigint           not null
 #
 # Indexes
 #
@@ -42,8 +44,9 @@ class ConversationMonitors::WorkItem < ApplicationRecord
     create_or_find_by!(conversation_id: conversation.id) { |work| work.account_id = conversation.account_id }
   end
 
-  def request!(invalidate: false, activity_at: nil, full_history: false)
+  def request!(invalidate: false, activity_at: nil, full_history: false, live_activity_at: nil)
     with_lock do
+      track_live_activity(live_activity_at, invalidate)
       self.revision += 1
       self.full_history_revision = revision if full_history || invalidate
       self.generation += 1 if invalidate
@@ -58,8 +61,18 @@ class ConversationMonitors::WorkItem < ApplicationRecord
 
   private
 
+  def track_live_activity(live_activity_at, invalidate)
+    if live_activity_at
+      self.live_activity_revision = revision + 1
+      self.live_activity_at = live_activity_at
+    elsif invalidate
+      self.live_activity_revision = 0
+      self.live_activity_at = nil
+    end
+  end
+
   def schedule_next_attempt
-    return if error_code == 'monthly_limit' && due_at&.future?
+    return if %w[monthly_limit budget_limit].include?(error_code) && due_at&.future?
 
     self.due_at = [due_at, 3.seconds.from_now].compact.min
     self.error_code = nil

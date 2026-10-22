@@ -17,6 +17,10 @@ Rails.application.routes.draw do
     root to: 'dashboard#index'
 
     get '/app', to: 'dashboard#index'
+    # Shareable install link for the Captain tools catalog; the dashboard picks the account and assistant
+    get '/captain/toolsets/install', to: redirect(status: 302) { |_params, request|
+      "/app/captain/toolsets/install?#{request.params.slice(:source).to_query}"
+    }
     get '/app/*params', to: 'dashboard#index'
     get '/app/accounts/:account_id/settings/inboxes/new/twitter', to: 'dashboard#index', as: 'app_new_twitter_inbox'
     get '/app/accounts/:account_id/settings/inboxes/new/microsoft', to: 'dashboard#index', as: 'app_new_microsoft_inbox'
@@ -115,6 +119,11 @@ Rails.application.routes.draw do
             resources :custom_tools do
               post :test, on: :collection
             end
+            resource :tools_manifest, only: [] do
+              get :installed
+              post :preview
+              post :install
+            end
             resources :documents, only: [:index, :show, :create, :destroy] do
               post :sync, on: :member
               get :drilldown, on: :member
@@ -123,11 +132,12 @@ Rails.application.routes.draw do
               post :rewrite
               post :summarize
               post :reply_suggestion
-              post :label_suggestion
               post :follow_up
             end
           end
-          resource :saml_settings, only: [:show, :create, :update, :destroy]
+          resource :saml_settings, only: [:show, :create, :update, :destroy] do
+            post :refresh
+          end
           resources :agent_bots, only: [:index, :create, :show, :update, :destroy] do
             delete :avatar, on: :member
             post :reset_access_token, on: :member
@@ -181,13 +191,15 @@ Rails.application.routes.draw do
               post :filter
             end
             scope module: :conversations do
+              resources :campaign_history, only: [:index] if ChatwootApp.enterprise?
               resources :messages, only: [:index, :create, :destroy, :update] do
+                post :auto_translate, on: :collection if ChatwootApp.enterprise?
                 member do
                   post :translate
                   post :retry
                 end
               end
-              resource :contact_info_request, only: [:create]
+              resource :contact_info_request, only: [:show, :create]
               resources :assignments, only: [:create]
               resources :labels, only: [:create, :index]
               resource :participants, only: [:show, :create, :update, :destroy]
@@ -239,8 +251,13 @@ Rails.application.routes.draw do
                   get :search
                 end
               end
-              resources :conversations, only: [:index]
+              resources :conversations, only: [:index] do
+                collection do
+                  post :filter
+                end
+              end
               resources :notes, only: [:index]
+              resource :enrichment, only: [:create] if ChatwootApp.enterprise?
             end
           end
           resources :contacts, only: [:index, :show, :update, :create, :destroy] do
@@ -414,6 +431,10 @@ Rails.application.routes.draw do
 
           resources :webhooks, only: [:index, :create, :update, :destroy]
           namespace :integrations do
+            resource :stripe, controller: 'stripe', only: [:show, :destroy] do
+              post :auth
+              get :customer
+            end
             resources :apps, only: [:index, :show]
             resources :hooks, only: [:show, :create, :update, :destroy] do
               member do
@@ -434,6 +455,7 @@ Rails.application.routes.draw do
             resource :shopify, controller: 'shopify', only: [:destroy] do
               collection do
                 post :auth
+                post :complete_install
                 get :orders
               end
             end
@@ -596,6 +618,7 @@ Rails.application.routes.draw do
         namespace :v1 do
           resources :accounts do
             member do
+              post :reconnect_shopify, to: 'shopify#reconnect_shopify'
               get :billing_summary
               post :checkout
               post :subscription
@@ -700,12 +723,16 @@ Rails.application.routes.draw do
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
+  post 'webhooks/stripe_app', to: 'webhooks/stripe_app#events'
   post 'webhooks/shopify', to: 'webhooks/shopify#events'
 
   namespace :twitter do
     resource :callback, only: [:show]
   end
 
+  namespace :stripe do
+    resource :callback, only: [:show]
+  end
   namespace :linear do
     resource :callback, only: [:show]
   end
@@ -750,9 +777,10 @@ Rails.application.routes.draw do
       root to: 'dashboard#index'
 
       resource :app_config, only: [:show, :create]
-      resource :push_diagnostics, only: [:show, :create] do
+      resource :user_diagnostics, only: [:show, :create] do
         post :destroy_subscriptions, on: :collection
       end
+      get 'push_diagnostics', to: redirect { |_params, request| "/super_admin/user_diagnostics?tab=push&#{request.query_string}" }
 
       # order of resources affect the order of sidebar navigation in super admin
       resources :accounts, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
@@ -762,6 +790,8 @@ Rails.application.routes.draw do
       resources :users, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         delete :avatar, on: :member, action: :destroy_avatar
         post :resend_confirmation, on: :member
+        post :impersonate, on: :member
+        post :impersonation_link, on: :member
         post :check_email_suppression, on: :member
         post :clear_email_suppression, on: :member
         post :send_test_email, on: :member
@@ -775,6 +805,13 @@ Rails.application.routes.draw do
       resources :platform_apps, only: [:index, :new, :create, :show, :edit, :update, :destroy]
       resources :platform_banners
       resource :instance_status, only: [:show]
+
+      resources :search, only: [] do
+        collection do
+          get :accounts
+          get :users
+        end
+      end
 
       resource :settings, only: [:show] do
         get :refresh, on: :collection

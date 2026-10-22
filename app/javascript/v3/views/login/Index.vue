@@ -1,7 +1,6 @@
 <script>
 // utils and composables
 import { login } from '../../api/auth';
-import { getLoginRedirectURL } from '../../helpers/AuthHelper';
 import { mapGetters } from 'vuex';
 import { useAlert } from 'dashboard/composables';
 import { required, email } from '@vuelidate/validators';
@@ -11,6 +10,7 @@ import SessionStorage from 'shared/helpers/sessionStorage';
 import { useBranding } from 'shared/composables/useBranding';
 import AnalyticsHelper from 'dashboard/helper/AnalyticsHelper';
 import { SESSION_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
+import { getLoginRedirectURL, getSignupRoute } from 'v3/helpers/AuthHelper';
 
 // components
 import FormInput from '../../components/Form/Input.vue';
@@ -19,11 +19,15 @@ import NextButton from 'dashboard/components-next/button/Button.vue';
 import MfaVerification from 'dashboard/components/auth/MfaVerification.vue';
 import MfaEnforcedSetup from 'dashboard/components/auth/MfaEnforcedSetup.vue';
 import SessionLimitOverlay from 'dashboard/components/auth/SessionLimitOverlay.vue';
-// import Icon from 'dashboard/components-next/icon/Icon.vue'; // descomente junto com o botão SAML no template
+// Descomente junto com o bloco de login Google/SSO no template:
+// import GoogleOAuthButton from '../../components/GoogleOauth/Button.vue';
+// import SimpleDivider from '../../components/Divider/SimpleDivider.vue';
+// import Icon from 'dashboard/components-next/icon/Icon.vue';
 
 const ERROR_MESSAGES = {
   'no-account-found': 'LOGIN.OAUTH.NO_ACCOUNT_FOUND',
   'business-account-only': 'LOGIN.OAUTH.BUSINESS_ACCOUNTS_ONLY',
+  'shopify-installation-failed': 'LOGIN.OAUTH.SHOPIFY_INSTALLATION_FAILED',
   'saml-authentication-failed': 'LOGIN.SAML.API.ERROR_MESSAGE',
   'saml-not-enabled': 'LOGIN.SAML.API.ERROR_MESSAGE',
 };
@@ -48,6 +52,7 @@ export default {
     ssoConversationId: { type: String, default: '' },
     email: { type: String, default: '' },
     authError: { type: String, default: '' },
+    redirectUrl: { type: String, default: '' },
   },
   setup() {
     const { replaceInstallationName } = useBranding();
@@ -106,10 +111,44 @@ export default {
       );
     },
     showSignupLink() {
-      return window.chatwootConfig.signupEnabled === 'true';
+      return (
+        window.chatwootConfig.signupEnabled === 'true' ||
+        Boolean(this.signupRoute.query?.shopify_pending_install)
+      );
+    },
+    signupRoute() {
+      return getSignupRoute(this.redirectUrl);
+    },
+    resetPasswordRoute() {
+      const route = { name: 'auth_reset_password' };
+      return this.redirectUrl
+        ? {
+            ...route,
+            query: {
+              redirect_url: this.redirectUrl,
+              ...(this.ssoAccountId
+                ? { sso_account_id: this.ssoAccountId }
+                : {}),
+            },
+          }
+        : route;
     },
     showSamlLogin() {
       return this.allowedLoginMethods.includes('saml');
+    },
+    samlLoginRoute() {
+      const route = { name: 'sso_login' };
+      return this.redirectUrl || this.ssoAccountId
+        ? {
+            ...route,
+            query: {
+              redirect_url: this.redirectUrl,
+              ...(this.ssoAccountId
+                ? { sso_account_id: this.ssoAccountId }
+                : {}),
+            },
+          }
+        : route;
     },
   },
   created() {
@@ -142,6 +181,8 @@ export default {
           return this.$t('LOGIN.OAUTH.NO_ACCOUNT_FOUND');
         case 'LOGIN.OAUTH.BUSINESS_ACCOUNTS_ONLY':
           return this.$t('LOGIN.OAUTH.BUSINESS_ACCOUNTS_ONLY');
+        case 'LOGIN.OAUTH.SHOPIFY_INSTALLATION_FAILED':
+          return this.$t('LOGIN.OAUTH.SHOPIFY_INSTALLATION_FAILED');
         case 'LOGIN.API.UNAUTH':
         default:
           return this.$t('LOGIN.API.UNAUTH');
@@ -186,6 +227,7 @@ export default {
         sso_auth_token: this.ssoAuthToken,
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
+        redirectUrl: this.redirectUrl,
       };
 
       login(credentials)
@@ -226,7 +268,10 @@ export default {
             this.loginApi.showLoading = false;
             this.$router.push({
               name: 'auth_verify_email',
-              state: { email: credentials.email },
+              state: {
+                email: credentials.email,
+                redirectUrl: this.redirectUrl,
+              },
             });
             return;
           }
@@ -249,14 +294,14 @@ export default {
 
       this.submitLogin();
     },
-    handleMfaVerified(data) {
-      // Verification successful; honor the requested account/conversation link
-      // the same way the direct-login path does, instead of always going to /app.
+    handleMfaVerified(user) {
+      // Continue with the requested Shopify, account, or conversation destination.
       this.handleImpersonation();
       window.location = getLoginRedirectURL({
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
-        user: data?.data,
+        redirectUrl: this.redirectUrl,
+        user,
       });
     },
     handleMfaCancel() {
@@ -282,6 +327,7 @@ export default {
       window.location = getLoginRedirectURL({
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
+        redirectUrl: this.redirectUrl,
         user: data?.data,
       });
     },
@@ -301,6 +347,7 @@ export default {
         sso_auth_token: this.ssoAuthToken,
         ssoAccountId: this.ssoAccountId,
         ssoConversationId: this.ssoConversationId,
+        redirectUrl: this.redirectUrl,
         ...extraParams,
       };
 
@@ -360,7 +407,7 @@ export default {
       />
       <p v-if="showSignupLink" class="mt-3 text-sm text-center text-n-slate-11">
         {{ $t('COMMON.OR') }}
-        <router-link to="auth/signup" class="lowercase text-link text-n-brand">
+        <router-link :to="signupRoute" class="lowercase text-link text-n-brand">
           {{ $t('LOGIN.CREATE_NEW_ACCOUNT') }}
         </router-link>
       </p>
@@ -408,17 +455,32 @@ export default {
       }"
     >
       <div v-if="!email">
-        <!-- Login via SAML/SSO. Para habilitar, descomente este bloco + o import e o registro do Icon.
-        <div v-if="showSamlLogin" class="text-center mb-4">
-          <router-link
-            to="/app/login/sso"
-            class="inline-flex justify-center w-full px-4 py-3 items-center bg-n-background dark:bg-n-solid-3 rounded-md shadow-sm ring-1 ring-inset ring-n-container dark:ring-n-container focus:outline-offset-0 hover:bg-n-alpha-2 dark:hover:bg-n-alpha-2"
-          >
-            <Icon icon="i-lucide-lock-keyhole" class="size-5 text-n-slate-11" />
-            <span class="ml-2 text-base font-medium text-n-slate-12">
-              {{ $t('LOGIN.SAML.LABEL') }}
-            </span>
-          </router-link>
+        <!-- Login via Google e SAML/SSO. Para habilitar, descomente este bloco + os imports e registros de GoogleOAuthButton, SimpleDivider e Icon.
+        <div class="flex flex-col gap-4">
+          <GoogleOAuthButton
+            v-if="showGoogleOAuth"
+            :redirect-url="redirectUrl"
+            :sso-account-id="ssoAccountId"
+          />
+          <div v-if="showSamlLogin" class="text-center">
+            <router-link
+              :to="samlLoginRoute"
+              class="inline-flex justify-center w-full px-4 py-3 items-center bg-n-background dark:bg-n-solid-3 rounded-md shadow-sm ring-1 ring-inset ring-n-container dark:ring-n-container focus:outline-offset-0 hover:bg-n-alpha-2 dark:hover:bg-n-alpha-2"
+            >
+              <Icon
+                icon="i-lucide-lock-keyhole"
+                class="size-5 text-n-slate-11"
+              />
+              <span class="ml-2 text-base font-medium text-n-slate-12">
+                {{ $t('LOGIN.SAML.LABEL') }}
+              </span>
+            </router-link>
+          </div>
+          <SimpleDivider
+            v-if="showGoogleOAuth || showSamlLogin"
+            :label="$t('COMMON.OR')"
+            class="uppercase"
+          />
         </div>
         -->
         <form class="space-y-5" @submit.prevent="submitFormLogin">
@@ -448,7 +510,7 @@ export default {
           >
             <p v-if="!globalConfig.disableUserProfileUpdate">
               <router-link
-                to="auth/reset/password"
+                :to="resetPasswordRoute"
                 class="text-sm text-link"
                 tabindex="4"
               >

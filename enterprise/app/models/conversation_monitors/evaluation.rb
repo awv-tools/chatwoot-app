@@ -5,6 +5,7 @@
 #  id                :bigint           not null, primary key
 #  error_code        :string
 #  evaluated_at      :datetime
+#  first_matched_at  :datetime
 #  generation        :bigint           default(0), not null
 #  input_revision    :bigint           default(0), not null
 #  matched_at        :datetime

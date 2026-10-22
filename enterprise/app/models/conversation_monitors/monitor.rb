@@ -31,14 +31,19 @@
 #
 class ConversationMonitors::Monitor < ApplicationRecord
   self.table_name = 'conversation_monitors'
+  MAX_CONDITION_LENGTH = 500
 
   belongs_to :account
   belongs_to :user, optional: true
   has_many :evaluations, class_name: 'ConversationMonitors::Evaluation', dependent: :delete_all, inverse_of: :monitor
   has_many :scans, class_name: 'ConversationMonitors::Scan', dependent: :delete_all, inverse_of: :monitor
+  has_many :automation_rules, class_name: '::AutomationRule', dependent: :nullify, inverse_of: :monitor
+  has_many :automation_deliveries, class_name: 'ConversationMonitors::AutomationDelivery', dependent: :delete_all,
+                                   inverse_of: :monitor
 
   validates :name, presence: true, length: { maximum: 100 }
-  validates :condition, presence: true, length: { maximum: 2000 }
+  validates :condition, presence: true
+  validates :condition, length: { maximum: MAX_CONDITION_LENGTH }, if: :will_save_change_to_condition?
   validates :model, :history_since, presence: true
   validates :threshold, numericality: { greater_than: 0, less_than_or_equal_to: 1 }
   attr_readonly :model, :threshold, :history_since, :account_id
@@ -56,6 +61,13 @@ class ConversationMonitors::Monitor < ApplicationRecord
 
   def resumable?
     paused_at.present? && deleted_at.nil?
+  end
+
+  def disable_automations!
+    automation_rules.active.find_each do |rule|
+      rule.active = false
+      rule.save!(validate: false)
+    end
   end
 
   def matched_conversations

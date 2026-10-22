@@ -9,8 +9,7 @@ class Whatsapp::IncomingMessageBaseService
   pattr_initialize [:inbox!, :params!, :outgoing_echo, { locked_sender_id: nil }]
 
   RETRYABLE_ERROR_CODES = [131_026, 131_042].freeze
-  MAX_WHATSAPP_RETRIES = 2
-  WHATSAPP_RETRY_DELAY = 10.seconds
+  WHATSAPP_RETRY_DELAYS = [30.seconds, 2.minutes, 5.minutes].freeze
 
   def perform
     processed_params
@@ -78,13 +77,13 @@ class Whatsapp::IncomingMessageBaseService
     return false unless RETRYABLE_ERROR_CODES.include?(error_code.to_i)
 
     retry_count = message.content_attributes.fetch(:whatsapp_auto_retry_count, 0).to_i
-    return false if retry_count >= MAX_WHATSAPP_RETRIES
+    return false if retry_count >= WHATSAPP_RETRY_DELAYS.size
 
     message.content_attributes = message.content_attributes.merge(whatsapp_auto_retry_count: retry_count + 1)
     message.source_id = nil
     message.status = :sent
     message.save!
-    SendReplyJob.set(wait: WHATSAPP_RETRY_DELAY).perform_later(message.id)
+    SendReplyJob.set(wait: WHATSAPP_RETRY_DELAYS[retry_count]).perform_later(message.id)
     true
   end
 

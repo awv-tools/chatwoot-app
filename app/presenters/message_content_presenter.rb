@@ -13,11 +13,12 @@ class MessageContentPresenter < SimpleDelegator
 
   private
 
-  # WhatsApp doesn't show the agent, so prefix the reply with their name in bold
+  # WhatsApp doesn't show the agent, so prefix the reply with their display name in bold
   def content_with_whatsapp_sender_name
-    return content_with_survey_link unless inbox.whatsapp? && sender.is_a?(User) && content.present? && !input_csat?
+    display_name = sender.display_name if sender.is_a?(User)
+    return content_with_survey_link unless inbox.whatsapp? && display_name.present? && content.present? && !input_csat?
 
-    "**#{sender.available_name}**:\n#{content}"
+    "**#{display_name.strip}**:\n#{content}"
   end
 
   def content_with_survey_link

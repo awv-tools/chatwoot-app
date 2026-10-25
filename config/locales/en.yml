@@ -114,6 +114,7 @@ en:
       failed: Signup failed
     voice:
       call_already_accepted: '%{agent_name} is already handling the call.'
+      call_no_longer_ringing: 'This call is no longer ringing.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
@@ -368,6 +369,8 @@ en:
         unknown_caller: 'Unknown caller'
         twilio: 'Voice Call'
         whatsapp: 'WhatsApp Call'
+        voip: 'Voice Call'
+        voip_summary: "Call summary:\n%{summary}"
       delivery_status:
         error_code: 'Error code: %{error_code}'
     activity:

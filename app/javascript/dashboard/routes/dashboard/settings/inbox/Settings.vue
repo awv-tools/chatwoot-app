@@ -221,6 +221,7 @@ export default {
       if (
         this.isATwilioChannel ||
         this.isALineChannel ||
+        this.isAVoipChannel ||
         this.isAPIInbox ||
         (this.isAnEmailChannel && !this.inbox.provider) ||
         this.shouldShowWhatsAppConfiguration ||
@@ -340,7 +341,8 @@ export default {
         this.isAnInstagramChannel ||
         this.isALineChannel ||
         this.isATiktokChannel ||
-        this.isATelegramChannel
+        this.isATelegramChannel ||
+        this.isAVoipChannel
       );
     },
     inboxNameLabel() {

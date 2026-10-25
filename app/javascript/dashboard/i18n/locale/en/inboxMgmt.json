@@ -443,6 +443,25 @@
           "STATUS_LINK": "View status updates"
         }
       },
+      "VOIP": {
+        "TITLE": "Voice Channel",
+        "DESC": "Receive calls on your own phone line and answer them from the browser. Calls are recorded, transcribed and summarized in the conversation.",
+        "CHANNEL_NAME": {
+          "LABEL": "Channel Name",
+          "PLACEHOLDER": "Enter a channel name (eg: Support Line)",
+          "ERROR": "This field is required"
+        },
+        "PHONE_NUMBER": {
+          "LABEL": "Phone Number",
+          "PLACEHOLDER": "+5511999999999",
+          "HELP": "The number customers call, in E.164 format. In development, a test extension such as 1000 also works.",
+          "ERROR": "This field is required"
+        },
+        "SUBMIT_BUTTON": "Create Voice Channel",
+        "API": {
+          "ERROR_MESSAGE": "We were not able to create the voice channel"
+        }
+      },
       "VOICE": {
         "TITLE": "Voice Channel",
         "DESC": "Integrate Twilio Voice and start supporting your customers via phone calls.",
@@ -588,6 +607,10 @@
           "WHATSAPP_CALL": {
             "TITLE": "WhatsApp Call",
             "DESCRIPTION": "Take voice calls on your WhatsApp number"
+          },
+          "VOIP": {
+            "TITLE": "Voice",
+            "DESCRIPTION": "Answer phone calls in the browser"
           },
           "EMAIL": {
             "TITLE": "Email",
@@ -768,6 +791,16 @@
       "CSAT": "CSAT",
       "VOICE": "Voice",
       "CALLS": "Calls"
+    },
+    "VOIP_CONFIGURATION": {
+      "PHONE_NUMBER": {
+        "TITLE": "Phone number",
+        "SUBTITLE": "Calls to this number ring the agents of this inbox."
+      },
+      "WEBHOOK": {
+        "TITLE": "Webhook URL",
+        "SUBTITLE": "The voice platform sends call events to this URL."
+      }
     },
     "VOICE_CONFIGURATION": {
       "ENABLE_VOICE": {
@@ -1636,7 +1669,8 @@
       "API": "API Channel",
       "INSTAGRAM": "Instagram",
       "TIKTOK": "TikTok",
-      "VOICE": "Voice"
+      "VOICE": "Voice",
+      "VOIP": "Voice"
     }
   }
 }

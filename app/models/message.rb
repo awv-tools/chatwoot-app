@@ -157,7 +157,20 @@ class Message < ApplicationRecord
     )
     data[:echo_id] = echo_id if echo_id.present?
     data[:attachments] = attachments.map(&:push_event_data) if attachments.present?
+    data[:call] = call_data if voice_call?
     merge_sender_attributes(data)
+  end
+
+  # Call state of a voice_call message, shaped like the call payload the call UI reads
+  def call_data
+    content_attributes.dig('data', 'call') if voice_call?
+  end
+
+  # The row lock keeps concurrent call updates (status, recording, transcript) from overwriting each other
+  def update_call_data!(attributes)
+    with_lock do
+      update!(content_attributes: content_attributes.deep_merge('data' => { 'call' => attributes.stringify_keys }))
+    end
   end
 
   def conversation_push_event_data

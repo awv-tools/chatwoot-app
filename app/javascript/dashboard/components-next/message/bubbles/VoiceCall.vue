@@ -263,6 +263,7 @@ const handleJoinCall = async () => {
 const canCallBack = computed(
   () =>
     isMissedInbound.value &&
+    call.value?.provider !== VOICE_CALL_PROVIDERS.VOIP &&
     (isWhatsapp.value || !!sender.value?.phoneNumber) &&
     !!inboxId.value &&
     !!conversationId.value &&

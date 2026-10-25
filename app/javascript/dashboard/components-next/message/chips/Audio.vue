@@ -224,7 +224,7 @@ const downloadAudio = async () => {
 
     <div
       v-if="attachment.transcribedText && showTranscribedText"
-      class="text-n-slate-12 p-3 text-sm bg-n-alpha-1 rounded-lg w-full break-words"
+      class="text-n-slate-12 p-3 text-sm bg-n-alpha-1 rounded-lg w-full break-words whitespace-pre-line"
     >
       {{ displayedTranscript }}
       <button

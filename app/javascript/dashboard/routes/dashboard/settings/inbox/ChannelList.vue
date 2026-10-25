@@ -94,9 +94,9 @@ const channelList = computed(() => {
   }
 
   channels.push({
-    key: 'voice',
-    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.TITLE'),
-    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.DESCRIPTION'),
+    key: 'voip',
+    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOIP.TITLE'),
+    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOIP.DESCRIPTION'),
     icon: 'i-woot-voice',
   });
 

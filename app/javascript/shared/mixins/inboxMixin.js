@@ -134,6 +134,9 @@ export default {
     isATiktokChannel() {
       return this.channelType === INBOX_TYPES.TIKTOK;
     },
+    isAVoipChannel() {
+      return this.channelType === INBOX_TYPES.VOIP;
+    },
   },
   methods: {
     inboxHasFeature(feature) {

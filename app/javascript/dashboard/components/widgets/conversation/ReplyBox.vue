@@ -250,7 +250,8 @@ export default {
       return (
         this.isWithinMessagingWindow &&
         !this.isAIOwnedPendingConversation &&
-        !this.isInstagramReplyRestricted
+        !this.isInstagramReplyRestricted &&
+        !this.isAVoipChannel
       );
     },
     isVoiceCallConversation() {

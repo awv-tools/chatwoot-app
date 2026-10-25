@@ -342,6 +342,11 @@ Rails.application.routes.draw do
             post :register_webhook, on: :member
             post :reset_secret, on: :member
             post :rotate_hmac_token, on: :member
+            resources :voip_calls, only: [], module: :inboxes do
+              post :accept, on: :member
+              post :reject, on: :member
+              get :credentials, on: :collection
+            end
             if ChatwootApp.enterprise?
               resource :conference, only: %i[create destroy], controller: 'conference' do
                 get :token, on: :member
@@ -725,6 +730,7 @@ Rails.application.routes.draw do
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
   post 'webhooks/stripe_app', to: 'webhooks/stripe_app#events'
   post 'webhooks/shopify', to: 'webhooks/shopify#events'
+  post 'webhooks/voip', to: 'webhooks/voip#process_payload'
 
   namespace :twitter do
     resource :callback, only: [:show]

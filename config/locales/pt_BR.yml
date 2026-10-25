@@ -89,6 +89,7 @@ pt_BR:
       failed: Registro falhou
     voice:
       call_already_accepted: '%{agent_name} já está atendendo a chamada.'
+      call_no_longer_ringing: 'Esta chamada não está mais tocando.'
     assignment_policy:
       not_found: Política de atribuição não encontrada
     attachments:
@@ -343,6 +344,8 @@ pt_BR:
       voice_call:
         twilio: 'Chamada de Voz'
         whatsapp: 'Chamada do WhatsApp'
+        voip: 'Chamada de Voz'
+        voip_summary: "Resumo da chamada:\n%{summary}"
       delivery_status:
         error_code: 'Código de erro: %{error_code}'
     activity:

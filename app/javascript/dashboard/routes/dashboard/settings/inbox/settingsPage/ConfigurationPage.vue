@@ -243,6 +243,20 @@ export default {
       <woot-code :script="inbox.callback_webhook_url" lang="html" />
     </SettingsFieldSection>
   </div>
+  <div v-else-if="isAVoipChannel">
+    <SettingsFieldSection
+      :label="$t('INBOX_MGMT.VOIP_CONFIGURATION.PHONE_NUMBER.TITLE')"
+      :help-text="$t('INBOX_MGMT.VOIP_CONFIGURATION.PHONE_NUMBER.SUBTITLE')"
+    >
+      <woot-code :script="inbox.phone_number" lang="html" />
+    </SettingsFieldSection>
+    <SettingsFieldSection
+      :label="$t('INBOX_MGMT.VOIP_CONFIGURATION.WEBHOOK.TITLE')"
+      :help-text="$t('INBOX_MGMT.VOIP_CONFIGURATION.WEBHOOK.SUBTITLE')"
+    >
+      <woot-code :script="inbox.callback_webhook_url" lang="html" />
+    </SettingsFieldSection>
+  </div>
   <div v-else-if="isAWebWidgetInbox">
     <div class="space-y-4">
       <SettingsToggleSection

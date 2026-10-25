@@ -10,7 +10,7 @@ class WhatsappVoice::AcceptCallService
                                 started_at: Time.current.to_i)
     end
     message.conversation.update!(assignee: agent)
-    WhatsappVoice::CallBroadcaster.broadcast(message, :accepted, accepted_by_agent_id: agent.id)
+    WhatsappVoice::CallBroadcaster.broadcast(message.account_id, message.source_id, :accepted, accepted_by_agent_id: agent.id)
   end
 
   private

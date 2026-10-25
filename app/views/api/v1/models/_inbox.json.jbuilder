@@ -174,7 +174,8 @@ end
 
 ## Voice attribute for WhatsApp Cloud (only embedded-signup channels surface true)
 if resource.channel_type == 'Channel::Whatsapp' && resource.channel.respond_to?(:voice_enabled?)
-  json.voice_enabled resource.channel.voice_enabled?
+  # Cumpra AI calling (WhatsappVoice) only needs calling turned on, not the premium channel_voice feature
+  json.voice_enabled resource.channel.voice_calling_supported? && resource.channel.provider_config['calling_enabled'].present?
   json.inbound_calls_enabled resource.channel.inbound_calls_enabled?
   json.recording_enabled resource.channel.try(:recording_enabled?)
   json.transcription_enabled resource.channel.try(:transcription_enabled?)

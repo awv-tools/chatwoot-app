@@ -37,10 +37,12 @@ const contactsUiFlags = useMapGetter('contacts/getUIFlags');
 const { isCloudFeatureEnabled } = useAccount();
 
 const voiceCallProvider = computed(() => getVoiceCallProvider(props.inbox));
+// Cumpra AI WhatsApp calling doesn't depend on the premium channel_voice feature
 const isVoiceCallInbox = computed(
   () =>
-    voiceCallProvider.value !== null &&
-    isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE)
+    voiceCallProvider.value === VOICE_CALL_PROVIDERS.WHATSAPP ||
+    (voiceCallProvider.value !== null &&
+      isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE))
 );
 const isWhatsappVoiceInbox = computed(
   () => voiceCallProvider.value === VOICE_CALL_PROVIDERS.WHATSAPP

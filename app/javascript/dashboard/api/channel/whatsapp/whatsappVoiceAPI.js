@@ -23,6 +23,18 @@ class WhatsappVoiceAPI extends ApiClient {
       .then(r => r.data);
   }
 
+  // Either conversationId, or contactId + inboxId to let the BE resolve the conversation.
+  initiate({ conversationId, contactId, inboxId }, sdpOffer) {
+    return axios
+      .post(`${this.url}/call/initiate`, {
+        conversation_id: conversationId,
+        contact_id: contactId,
+        inbox_id: inboxId,
+        sdp_offer: sdpOffer,
+      })
+      .then(r => r.data);
+  }
+
   accept(callId, sdpAnswer) {
     return axios
       .post(`${this.url}/call/accept`, {

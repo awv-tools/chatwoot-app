@@ -17,6 +17,8 @@ class Webhooks::WhatsappController < ActionController::API
       WhatsappVoice::WebhookJob.perform_later(params.to_unsafe_hash)
     else
       Webhooks::WhatsappEventsJob.perform_later(params.to_unsafe_hash)
+      # The events job drops call permission replies, so our flow notes them in the conversation
+      WhatsappVoice::WebhookJob.perform_later(params.to_unsafe_hash) if call_permission_reply?
     end
     head :ok
   end
@@ -26,8 +28,17 @@ class Webhooks::WhatsappController < ActionController::API
   def webhook_fields_only?(field)
     return false unless params[:object] == 'whatsapp_business_account'
 
-    changes = params.fetch(:entry, []).flat_map { |entry| entry.fetch(:changes, []) }
-    changes.present? && changes.all? { |change| change[:field] == field }
+    webhook_changes.present? && webhook_changes.all? { |change| change[:field] == field }
+  end
+
+  def call_permission_reply?
+    webhook_changes.any? do |change|
+      Array(change.dig(:value, :messages)).any? { |message| message.dig(:interactive, :type) == 'call_permission_reply' }
+    end
+  end
+
+  def webhook_changes
+    @webhook_changes ||= params.fetch(:entry, []).flat_map { |entry| entry.fetch(:changes, []) }
   end
 
   def valid_token?(token)

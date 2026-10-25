@@ -351,6 +351,9 @@ pt_BR:
       delivery_status:
         error_code: 'Código de erro: %{error_code}'
     activity:
+      whatsapp_voice:
+        call_permission_accepted: '%{contact_name} permitiu ligações pelo WhatsApp'
+        call_permission_rejected: '%{contact_name} recusou ligações pelo WhatsApp'
       captain:
         resolved: 'A conversa foi marcada como resolvida por %{user_name} por inatividade'
         resolved_with_reason: 'A conversa foi marcada como resolvida por %{user_name} (%{reason})'

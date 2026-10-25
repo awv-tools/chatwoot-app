@@ -376,6 +376,9 @@ en:
       delivery_status:
         error_code: 'Error code: %{error_code}'
     activity:
+      whatsapp_voice:
+        call_permission_accepted: '%{contact_name} allowed WhatsApp calls'
+        call_permission_rejected: '%{contact_name} declined WhatsApp calls'
       captain:
         resolved: 'Conversation was marked resolved by %{user_name} due to inactivity'
         resolved_with_reason: 'Conversation was marked resolved by %{user_name} (%{reason})'

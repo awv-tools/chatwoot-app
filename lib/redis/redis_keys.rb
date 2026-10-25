@@ -129,4 +129,6 @@ module Redis::RedisKeys
   ## WhatsApp calling
   # SDP offer of a ringing WhatsApp call, read by the agent's browser when it answers
   WHATSAPP_VOICE_SDP_OFFER = 'WHATSAPP_VOICE::SDP_OFFER::%<call_id>s'.freeze
+  # Set when a call permission request is sent to a contact, so a second one isn't sent inside Meta's 24h limit
+  WHATSAPP_VOICE_CALL_PERMISSION_REQUESTED = 'WHATSAPP_VOICE::CALL_PERMISSION_REQUESTED::%<contact_inbox_id>d'.freeze
 end

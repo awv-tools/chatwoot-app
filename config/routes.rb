@@ -191,6 +191,7 @@ Rails.application.routes.draw do
               end
             end
             resource :call, only: [:show] do
+              post :initiate
               post :accept
               post :reject
               post :terminate

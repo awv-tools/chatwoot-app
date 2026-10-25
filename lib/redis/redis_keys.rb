@@ -125,4 +125,8 @@ module Redis::RedisKeys
   CAPTAIN_EMAIL_VERIFICATION_EMAIL_SENDS = 'CAPTAIN::EMAIL_VERIFICATION::EMAIL_SENDS::%<email_digest>s'.freeze
   # Email address verified in the conversation
   CAPTAIN_EMAIL_VERIFICATION_VERIFIED = 'CAPTAIN::EMAIL_VERIFICATION::VERIFIED::%<conversation_id>d'.freeze
+
+  ## WhatsApp calling
+  # SDP offer of a ringing WhatsApp call, read by the agent's browser when it answers
+  WHATSAPP_VOICE_SDP_OFFER = 'WHATSAPP_VOICE::SDP_OFFER::%<call_id>s'.freeze
 end

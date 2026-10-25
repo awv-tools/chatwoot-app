@@ -10,19 +10,24 @@ class Webhooks::WhatsappController < ActionController::API
       return
     end
 
-    return head :ok if tracking_events_only?
+    return head :ok if webhook_fields_only?('tracking_events')
 
-    Webhooks::WhatsappEventsJob.perform_later(params.to_unsafe_hash)
+    # Calls are handled by our own WhatsappVoice flow, before the events job (and its enterprise overlay)
+    if webhook_fields_only?('calls')
+      WhatsappVoice::WebhookJob.perform_later(params.to_unsafe_hash)
+    else
+      Webhooks::WhatsappEventsJob.perform_later(params.to_unsafe_hash)
+    end
     head :ok
   end
 
   private
 
-  def tracking_events_only?
+  def webhook_fields_only?(field)
     return false unless params[:object] == 'whatsapp_business_account'
 
     changes = params.fetch(:entry, []).flat_map { |entry| entry.fetch(:changes, []) }
-    changes.present? && changes.all? { |change| change[:field] == 'tracking_events' }
+    changes.present? && changes.all? { |change| change[:field] == field }
   end
 
   def valid_token?(token)

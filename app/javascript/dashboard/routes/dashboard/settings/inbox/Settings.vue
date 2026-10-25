@@ -25,6 +25,7 @@ import GreetingsEditor from 'shared/components/GreetingsEditor.vue';
 import ConfigurationPage from './settingsPage/ConfigurationPage.vue';
 import VoiceConfigurationPage from './settingsPage/VoiceConfigurationPage.vue';
 import WhatsappCallingPage from './settingsPage/WhatsappCallingPage.vue';
+import WhatsappVoiceCallingPage from './settingsPage/WhatsappVoiceCallingPage.vue';
 import CustomerSatisfactionPage from './settingsPage/CustomerSatisfactionPage.vue';
 import CollaboratorsPage from './settingsPage/CollaboratorsPage.vue';
 import BotConfiguration from './components/BotConfiguration.vue';
@@ -60,6 +61,7 @@ export default {
     ConfigurationPage,
     VoiceConfigurationPage,
     WhatsappCallingPage,
+    WhatsappVoiceCallingPage,
     CustomerSatisfactionPage,
     FacebookReauthorize,
     GreetingsEditor,
@@ -296,6 +298,14 @@ export default {
           ...visibleToAllChannelTabs,
           {
             key: 'calls-configuration',
+            name: this.$t('INBOX_MGMT.TABS.CALLS'),
+          },
+        ];
+      } else if (this.isAWhatsAppCloudChannel) {
+        visibleToAllChannelTabs = [
+          ...visibleToAllChannelTabs,
+          {
+            key: 'whatsapp-voice',
             name: this.$t('INBOX_MGMT.TABS.CALLS'),
           },
         ];
@@ -1427,6 +1437,9 @@ export default {
           class="mx-6 max-w-4xl"
         >
           <WhatsappCallingPage :inbox="inbox" />
+        </div>
+        <div v-if="selectedTabKey === 'whatsapp-voice'" class="mx-6 max-w-4xl">
+          <WhatsappVoiceCallingPage :inbox="inbox" />
         </div>
         <div v-if="selectedTabKey === 'csat'">
           <CustomerSatisfactionPage :inbox="inbox" />

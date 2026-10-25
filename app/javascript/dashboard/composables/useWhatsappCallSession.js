@@ -1,6 +1,7 @@
 import { readonly, ref } from 'vue';
 import Cookies from 'js-cookie';
-import WhatsappCallsAPI from 'dashboard/api/channel/whatsapp/whatsappCallsAPI';
+// Cumpra AI calling endpoints, same surface as whatsappCallsAPI.js
+import WhatsappCallsAPI from 'dashboard/api/channel/whatsapp/whatsappVoiceAPI';
 import { remuxWebmToOgg } from 'dashboard/components/widgets/WootWriter/utils/webmOpusToOgg';
 import { VOICE_CALL_OUTBOUND_INIT_STATUS } from 'dashboard/components-next/message/constants';
 
@@ -239,7 +240,7 @@ const beaconTerminate = callId => {
   if (!accountId) return;
   const headers = getDeviseAuthHeaders();
   if (!headers) return;
-  const url = `/api/v1/accounts/${accountId}/whatsapp_calls/${callId}/terminate`;
+  const url = `/api/v1/accounts/${accountId}/whatsapp_voice/call/terminate`;
   // fetch+keepalive (instead of navigator.sendBeacon) so we can attach auth
   // headers — without them devise-token-auth 401s and the call stays open on
   // Meta until its carrier-side timeout (~60s).
@@ -249,7 +250,7 @@ const beaconTerminate = callId => {
       keepalive: true,
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...headers },
-      body: '{}',
+      body: JSON.stringify({ call_id: callId }),
     }).catch(() => {});
   } catch (_) {
     /* noop */

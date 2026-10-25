@@ -155,6 +155,8 @@ pt_BR:
         verification_failed: 'Não foi possível verificar as credenciais do Cloudflare RealtimeKit no momento. Por favor, tente novamente.'
     slack:
       invalid_channel_id: 'Canal de slack inválido. Por favor, tente novamente'
+    whatsapp_voice:
+      not_supported: 'Ligações do WhatsApp só estão disponíveis para caixas de entrada do WhatsApp Cloud API'
     whatsapp:
       token_exchange_failed: 'Falha ao trocar o código por um token de acesso. Por favor, tente novamente.'
       invalid_token_permissions: 'O token de acesso não tem as permissões necessárias para o WhatsApp.'

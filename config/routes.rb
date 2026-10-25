@@ -183,6 +183,19 @@ Rails.application.routes.draw do
           namespace :channels do
             resource :twilio_channel, only: [:create]
           end
+          namespace :whatsapp_voice do
+            resources :inboxes, only: [] do
+              member do
+                post :enable
+                post :disable
+              end
+            end
+            resource :call, only: [:show] do
+              post :accept
+              post :reject
+              post :terminate
+            end
+          end
           resources :conversations, only: [:index, :create, :show, :update, :destroy] do
             collection do
               get :meta

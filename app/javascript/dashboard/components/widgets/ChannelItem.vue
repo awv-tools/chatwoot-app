@@ -70,6 +70,7 @@ const isActive = computed(() => {
     'tiktok',
     'voice',
     'voip',
+    'whatsapp_voice',
   ].includes(key);
 });
 
@@ -81,9 +82,13 @@ const isComingSoon = computed(() => {
 });
 
 const isBeta = computed(() => {
-  return ['tiktok', 'voice', 'whatsapp_call', 'voip'].includes(
-    props.channel.key
-  );
+  return [
+    'tiktok',
+    'voice',
+    'whatsapp_call',
+    'voip',
+    'whatsapp_voice',
+  ].includes(props.channel.key);
 });
 
 const canRequestTiktokAccess = computed(() => {

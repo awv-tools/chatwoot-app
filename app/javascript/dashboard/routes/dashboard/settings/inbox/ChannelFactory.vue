@@ -8,6 +8,7 @@ import Email from './channels/Email.vue';
 import Sms from './channels/Sms.vue';
 import Whatsapp from './channels/Whatsapp.vue';
 import WhatsappCall from './channels/WhatsappCall.vue';
+import WhatsappVoiceCall from './channels/WhatsappVoiceCall.vue';
 import Line from './channels/Line.vue';
 import Telegram from './channels/Telegram.vue';
 import Instagram from './channels/Instagram.vue';
@@ -24,6 +25,7 @@ const channelViewList = {
   sms: Sms,
   whatsapp: Whatsapp,
   whatsapp_call: WhatsappCall,
+  whatsapp_voice: WhatsappVoiceCall,
   line: Line,
   telegram: Telegram,
   instagram: Instagram,

@@ -94,6 +94,13 @@ const channelList = computed(() => {
   }
 
   channels.push({
+    key: 'voice',
+    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.TITLE'),
+    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOICE.DESCRIPTION'),
+    icon: 'i-woot-voice',
+  });
+
+  channels.push({
     key: 'voip',
     title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOIP.TITLE'),
     description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.VOIP.DESCRIPTION'),
@@ -107,7 +114,17 @@ const channelList = computed(() => {
     icon: 'i-woot-whatsapp',
   });
 
-  return channels;
+  channels.push({
+    key: 'whatsapp_voice',
+    title: t('INBOX_MGMT.ADD.AUTH.CHANNEL.WHATSAPP_VOICE.TITLE'),
+    description: t('INBOX_MGMT.ADD.AUTH.CHANNEL.WHATSAPP_VOICE.DESCRIPTION'),
+    icon: 'i-woot-whatsapp',
+  });
+
+  // Twilio's voice channel and the enterprise WhatsApp call stay in the code, hidden in favor of our own
+  return channels.filter(
+    channel => !['voice', 'whatsapp_call'].includes(channel.key)
+  );
 });
 
 const initChannelAuth = channel => {

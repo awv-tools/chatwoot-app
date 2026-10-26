@@ -134,6 +134,10 @@
       "INCOMING_CALL": "Chamada recebida",
       "OUTGOING_CALL": "Chamada realizada",
       "CALL_IN_PROGRESS": "Chamada em andamento",
+      "AI_ATTENDING": "Em atendimento pela assistente virtual",
+      "AI_ATTENDING_SUBTEXT": "Conversando com o contato",
+      "TRANSFERRED_CALL": "Chamada transferida",
+      "TRANSFER_REASON": "Transferida pela assistente virtual: {reason}",
       "NO_ANSWER": "Sem resposta",
       "NO_ANSWER_OUTBOUND_LABEL": "Sem resposta",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "O contato não atendeu",
@@ -150,7 +154,12 @@
       "JOIN_CALL": "Entrar na chamada",
       "CALL_BACK": "Retornar chamada",
       "TRANSCRIPT_SHOW_MORE": "Ver mais",
-      "TRANSCRIPT_SHOW_LESS": "Mostrar menos"
+      "TRANSCRIPT_SHOW_LESS": "Mostrar menos",
+      "SPEAKER": {
+        "CALLER": "Cliente",
+        "ASSISTANT": "Assistente virtual",
+        "AGENT": "Atendente"
+      }
     },
     "HEADER": {
       "RESOLVE_ACTION": "Resolver",

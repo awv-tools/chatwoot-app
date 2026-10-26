@@ -348,6 +348,7 @@ pt_BR:
         whatsapp: 'Chamada do WhatsApp'
         voip: 'Chamada de Voz'
         voip_summary: "Resumo da chamada:\n%{summary}"
+        voip_ai_note: "Recado anotado pela assistente virtual:\n%{note}"
       delivery_status:
         error_code: 'Código de erro: %{error_code}'
     activity:

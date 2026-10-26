@@ -373,6 +373,7 @@ en:
         whatsapp: 'WhatsApp Call'
         voip: 'Voice Call'
         voip_summary: "Call summary:\n%{summary}"
+        voip_ai_note: "Message taken by the virtual assistant:\n%{note}"
       delivery_status:
         error_code: 'Error code: %{error_code}'
     activity:

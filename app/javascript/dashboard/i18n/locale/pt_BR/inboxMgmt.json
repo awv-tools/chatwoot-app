@@ -453,13 +453,36 @@
         },
         "PHONE_NUMBER": {
           "LABEL": "Número de Telefone",
-          "PLACEHOLDER": "+5511999999999",
-          "HELP": "O número para o qual os clientes ligam, no formato E.164. Em desenvolvimento, um ramal de teste como 1000 também funciona.",
-          "ERROR": "Este campo é obrigatório"
+          "PLACEHOLDER": "(11) 99999-9999",
+          "HELP": "O número para o qual os clientes ligam, com DDD.",
+          "ERROR": "Informe um número válido com DDD"
+        },
+        "SIP": {
+          "TITLE": "Conta da operadora",
+          "DESC": "As credenciais SIP que a sua operadora forneceu para este número.",
+          "SERVER": {
+            "LABEL": "Servidor SIP",
+            "PLACEHOLDER": "sip.operadora.com.br"
+          },
+          "PORT": {
+            "LABEL": "Porta"
+          },
+          "USERNAME": {
+            "LABEL": "Usuário"
+          },
+          "PASSWORD": {
+            "LABEL": "Senha",
+            "HELP": "Enviada à plataforma de voz para registrar o número. Não fica guardada nesta caixa de entrada."
+          },
+          "ERROR": "Preencha todos os campos da operadora, ou deixe todos em branco"
         },
         "SUBMIT_BUTTON": "Criar Canal de Voz",
         "API": {
           "ERROR_MESSAGE": "Não foi possível criar o canal de voz"
+        },
+        "AI": {
+          "TITLE": "Assistente virtual",
+          "DESC": "A assistente virtual atende as ligações primeiro e transfere para um agente quando não consegue ajudar, ou quando o contato pede."
         }
       },
       "VOICE": {
@@ -607,6 +630,10 @@
           "WHATSAPP_CALL": {
             "TITLE": "Chamada do WhatsApp",
             "DESCRIPTION": "Receba chamadas de voz no seu número do WhatsApp"
+          },
+          "WHATSAPP_VOICE": {
+            "TITLE": "Chamada do WhatsApp",
+            "DESCRIPTION": "Receba e faça ligações de voz pelo seu número do WhatsApp"
           },
           "VOIP": {
             "TITLE": "Voz",
@@ -800,6 +827,10 @@
       "WEBHOOK": {
         "TITLE": "URL do webhook",
         "SUBTITLE": "A plataforma de voz envia os eventos das chamadas para esta URL."
+      },
+      "AI": {
+        "TITLE": "Assistente virtual",
+        "DESC": "Atende as ligações primeiro e transfere para os agentes desta caixa de entrada quando preciso. Se ninguém atender, anota um recado."
       }
     },
     "VOICE_CONFIGURATION": {

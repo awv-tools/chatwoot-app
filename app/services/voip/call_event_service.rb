@@ -1,7 +1,7 @@
 class Voip::CallEventService
   pattr_initialize [:channel!, :payload!]
 
-  EVENTS = %w[call.ringing call.answered call.ended call.recording_ready call.transcribed].freeze
+  EVENTS = %w[call.ai_answered call.ringing call.ai_resumed call.answered call.ended call.recording_ready call.transcribed].freeze
 
   def perform
     return unless EVENTS.include?(payload['event'])
@@ -19,7 +19,24 @@ class Voip::CallEventService
     @message ||= channel.call_message(payload['call_id'])
   end
 
+  # The AI attendant answered the call; it may later ring for the agents as a transfer
+  def ai_answered
+    create_call_message('ai')
+  end
+
   def ringing
+    return create_call_message('ringing') if payload['transfer'].blank?
+
+    message.update_call_data!(status: 'ringing', transfer_reason: payload['transfer']['reason'],
+                              transfer_summary: payload['transfer']['summary'])
+  end
+
+  # Nobody answered the transfer, so the AI attendant took the call back
+  def ai_resumed
+    message.update_call_data!(status: 'ai')
+  end
+
+  def create_call_message(status)
     return if inbox.messages.voice_calls.exists?(source_id: payload['call_id'])
 
     contact_inbox = find_or_create_contact_inbox
@@ -32,7 +49,7 @@ class Voip::CallEventService
       content_type: :voice_call,
       content: I18n.t('conversations.messages.voice_call.voip'),
       source_id: payload['call_id'],
-      content_attributes: { 'data' => { 'call' => initial_call } }
+      content_attributes: { 'data' => { 'call' => initial_call(status) } }
     )
   end
 
@@ -48,6 +65,11 @@ class Voip::CallEventService
     message.update_call_data!(status: payload['status'], duration_seconds: payload['duration_seconds'], end_reason: payload['end_reason'],
                               ended_at: Time.current.to_i)
     broadcast(:ended, status: payload['status'])
+    return if payload['ai_note'].blank?
+
+    Messages::MessageBuilder.new(
+      nil, message.conversation, { content: I18n.t('conversations.messages.voice_call.voip_ai_note', note: payload['ai_note']), private: true }
+    ).perform
   end
 
   def recording_ready
@@ -56,7 +78,7 @@ class Voip::CallEventService
 
   def transcribed
     message.attachments.audio.first&.update!(meta: { 'transcribed_text' => payload['transcript'] })
-    message.update_call_data!(transcript: payload['transcript'])
+    message.update_call_data!(transcript: payload['transcript'], transcript_segments: payload['segments'])
     return if payload['summary'].blank?
 
     Messages::MessageBuilder.new(
@@ -91,13 +113,13 @@ class Voip::CallEventService
                                          contact_inbox_id: contact_inbox.id)
   end
 
-  def initial_call
+  def initial_call(status)
     {
       'id' => payload['call_id'],
       'provider_call_id' => payload['call_id'],
       'provider' => 'voip',
       'direction' => 'incoming',
-      'status' => 'ringing',
+      'status' => status,
       'from_number' => payload['from'],
       'to_number' => channel.phone_number
     }

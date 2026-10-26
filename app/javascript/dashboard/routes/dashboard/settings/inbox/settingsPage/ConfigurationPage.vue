@@ -50,6 +50,7 @@ export default {
       isUpdatingAllowedDomains: false,
       isSettingDefaults: false,
       isReconfiguring: false,
+      voipAiEnabled: false,
     };
   },
   validations: {
@@ -80,6 +81,10 @@ export default {
       if (!this.isSettingDefaults && this.isAWebWidgetInbox)
         this.handleHmacFlag();
     },
+    voipAiEnabled() {
+      if (!this.isSettingDefaults && this.isAVoipChannel)
+        this.updateVoipAiEnabled();
+    },
   },
   mounted() {
     this.setDefaults();
@@ -92,6 +97,7 @@ export default {
         this.inbox.selected_feature_flags || []
       ).includes('allow_mobile_webview');
       this.allowedDomains = this.inbox.allowed_domains || '';
+      this.voipAiEnabled = this.inbox.ai_enabled || false;
       this.$nextTick(() => {
         this.isSettingDefaults = false;
       });
@@ -129,6 +135,18 @@ export default {
           },
         };
         await this.$store.dispatch('inboxes/updateInbox', payload);
+        useAlert(this.$t('INBOX_MGMT.EDIT.API.SUCCESS_MESSAGE'));
+      } catch (error) {
+        useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+      }
+    },
+    async updateVoipAiEnabled() {
+      try {
+        await this.$store.dispatch('inboxes/updateInbox', {
+          id: this.inbox.id,
+          formData: false,
+          channel: { ai_enabled: this.voipAiEnabled },
+        });
         useAlert(this.$t('INBOX_MGMT.EDIT.API.SUCCESS_MESSAGE'));
       } catch (error) {
         useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
@@ -244,6 +262,12 @@ export default {
     </SettingsFieldSection>
   </div>
   <div v-else-if="isAVoipChannel">
+    <SettingsToggleSection
+      v-model="voipAiEnabled"
+      class="mb-6"
+      :header="$t('INBOX_MGMT.VOIP_CONFIGURATION.AI.TITLE')"
+      :description="$t('INBOX_MGMT.VOIP_CONFIGURATION.AI.DESC')"
+    />
     <SettingsFieldSection
       :label="$t('INBOX_MGMT.VOIP_CONFIGURATION.PHONE_NUMBER.TITLE')"
       :help-text="$t('INBOX_MGMT.VOIP_CONFIGURATION.PHONE_NUMBER.SUBTITLE')"

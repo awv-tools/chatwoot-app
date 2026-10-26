@@ -135,6 +135,10 @@
       "INCOMING_CALL": "Incoming call",
       "OUTGOING_CALL": "Outgoing call",
       "CALL_IN_PROGRESS": "Call in progress",
+      "AI_ATTENDING": "Virtual assistant on the call",
+      "AI_ATTENDING_SUBTEXT": "Talking with the contact",
+      "TRANSFERRED_CALL": "Transferred call",
+      "TRANSFER_REASON": "Transferred by the virtual assistant: {reason}",
       "NO_ANSWER": "No answer",
       "NO_ANSWER_OUTBOUND_LABEL": "No answer",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "Contact didn't pick up",
@@ -151,7 +155,12 @@
       "JOIN_CALL": "Join call",
       "CALL_BACK": "Call back",
       "TRANSCRIPT_SHOW_MORE": "Show more",
-      "TRANSCRIPT_SHOW_LESS": "Show less"
+      "TRANSCRIPT_SHOW_LESS": "Show less",
+      "SPEAKER": {
+        "CALLER": "Contact",
+        "ASSISTANT": "Virtual assistant",
+        "AGENT": "Agent"
+      }
     },
     "HEADER": {
       "RESOLVE_ACTION": "Resolve",

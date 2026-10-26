@@ -453,13 +453,36 @@
         },
         "PHONE_NUMBER": {
           "LABEL": "Phone Number",
-          "PLACEHOLDER": "+5511999999999",
-          "HELP": "The number customers call, in E.164 format. In development, a test extension such as 1000 also works.",
-          "ERROR": "This field is required"
+          "PLACEHOLDER": "(11) 99999-9999",
+          "HELP": "The number customers call, with the area code.",
+          "ERROR": "Enter a valid phone number with the area code"
+        },
+        "SIP": {
+          "TITLE": "Operator account",
+          "DESC": "The SIP credentials your phone operator gave you for this number.",
+          "SERVER": {
+            "LABEL": "SIP Server",
+            "PLACEHOLDER": "sip.operator.com"
+          },
+          "PORT": {
+            "LABEL": "Port"
+          },
+          "USERNAME": {
+            "LABEL": "Username"
+          },
+          "PASSWORD": {
+            "LABEL": "Password",
+            "HELP": "Sent to the voice platform to register the number. It is not stored in this inbox."
+          },
+          "ERROR": "Fill in all the operator fields, or leave them all empty"
         },
         "SUBMIT_BUTTON": "Create Voice Channel",
         "API": {
           "ERROR_MESSAGE": "We were not able to create the voice channel"
+        },
+        "AI": {
+          "TITLE": "Virtual assistant",
+          "DESC": "The virtual assistant answers the calls first and transfers them to an agent when it cannot help, or when the contact asks for one."
         }
       },
       "VOICE": {
@@ -607,6 +630,10 @@
           "WHATSAPP_CALL": {
             "TITLE": "WhatsApp Call",
             "DESCRIPTION": "Take voice calls on your WhatsApp number"
+          },
+          "WHATSAPP_VOICE": {
+            "TITLE": "WhatsApp Call",
+            "DESCRIPTION": "Take and place voice calls on your WhatsApp number"
           },
           "VOIP": {
             "TITLE": "Voice",
@@ -800,6 +827,10 @@
       "WEBHOOK": {
         "TITLE": "Webhook URL",
         "SUBTITLE": "The voice platform sends call events to this URL."
+      },
+      "AI": {
+        "TITLE": "Virtual assistant",
+        "DESC": "Answers the calls first and transfers them to the agents of this inbox when needed. If nobody answers, it takes a message."
       }
     },
     "VOICE_CONFIGURATION": {

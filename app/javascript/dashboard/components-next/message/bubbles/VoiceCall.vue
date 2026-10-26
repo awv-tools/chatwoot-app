@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import { useMapGetter } from 'dashboard/composables/store';
@@ -25,11 +25,21 @@ import AudioChip from 'next/message/chips/Audio.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
 const LABEL_MAP = {
+  [VOICE_CALL_STATUS.AI]: 'CONVERSATION.VOICE_CALL.AI_ATTENDING',
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS',
   [VOICE_CALL_STATUS.COMPLETED]: 'CONVERSATION.VOICE_CALL.CALL_ENDED',
 };
 
+// Who speaks in a VoIP transcript segment
+const SPEAKER_LABEL_MAP = {
+  caller: 'CONVERSATION.VOICE_CALL.SPEAKER.CALLER',
+  assistant: 'CONVERSATION.VOICE_CALL.SPEAKER.ASSISTANT',
+  agent: 'CONVERSATION.VOICE_CALL.SPEAKER.AGENT',
+};
+const COLLAPSED_SEGMENTS = 6;
+
 const ICON_MAP = {
+  [VOICE_CALL_STATUS.AI]: 'i-ph-robot-bold',
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'i-ph-phone-call-bold',
   [VOICE_CALL_STATUS.COMPLETED]: 'i-ph-phone-bold',
   [VOICE_CALL_STATUS.NO_ANSWER]: 'i-ph-phone-x-bold',
@@ -89,6 +99,22 @@ const isFailed = computed(() =>
   ].includes(status.value)
 );
 const isMissedInbound = computed(() => isFailed.value && !isOutbound.value);
+// Set when the virtual assistant handed the call over to the agents
+const transferReason = computed(() => call.value?.transferReason);
+const transferSummary = computed(() => call.value?.transferSummary);
+// The transcript split by speaker and time, when the voice platform recorded each side
+const transcriptSegments = computed(() => call.value?.transcriptSegments || []);
+const isTranscriptExpanded = ref(false);
+const visibleSegments = computed(() =>
+  isTranscriptExpanded.value
+    ? transcriptSegments.value
+    : transcriptSegments.value.slice(0, COLLAPSED_SEGMENTS)
+);
+const formatSegmentTime = seconds => {
+  const total = Math.floor(seconds);
+  const minutes = String(Math.floor(total / 60)).padStart(2, '0');
+  return `${minutes}:${String(total % 60).padStart(2, '0')}`;
+};
 const endReason = computed(() => call.value?.endReason);
 const wasDeclinedByAgent = computed(
   () =>
@@ -143,6 +169,9 @@ const handledBy = computed(() =>
 
 const labelKey = computed(() => {
   if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
+  if (status.value === VOICE_CALL_STATUS.RINGING && transferReason.value) {
+    return 'CONVERSATION.VOICE_CALL.TRANSFERRED_CALL';
+  }
   if (isFailed.value) {
     return isOutbound.value
       ? 'CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL'
@@ -164,6 +193,14 @@ const subtext = computed(() => {
   }
   if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
     return handledBy.value;
+  }
+  if (status.value === VOICE_CALL_STATUS.AI) {
+    return t('CONVERSATION.VOICE_CALL.AI_ATTENDING_SUBTEXT');
+  }
+  if (status.value === VOICE_CALL_STATUS.RINGING && transferReason.value) {
+    return t('CONVERSATION.VOICE_CALL.TRANSFER_REASON', {
+      reason: transferReason.value,
+    });
   }
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
@@ -198,6 +235,9 @@ const iconContainerClass = computed(() => {
     return 'bg-n-teal-3 text-n-teal-11';
   }
   if (status.value === VOICE_CALL_STATUS.RINGING) {
+    return 'bg-n-teal-3 text-n-teal-11';
+  }
+  if (status.value === VOICE_CALL_STATUS.AI) {
     return 'bg-n-teal-3 text-n-teal-11';
   }
   if (isMissedInbound.value) {
@@ -342,12 +382,51 @@ const handleCallBack = async () => {
         </div>
       </div>
 
+      <!-- What the virtual assistant gathered before transferring -->
+      <p
+        v-if="transferSummary"
+        class="mb-0 text-sm leading-snug whitespace-pre-wrap opacity-75"
+      >
+        {{ transferSummary }}
+      </p>
+
       <!-- Audio player (when there's a recording) -->
       <AudioChip
         v-if="recordingAttachment"
         :attachment="recordingAttachment"
-        show-transcribed-text
+        :show-transcribed-text="!transcriptSegments.length"
       />
+
+      <!-- Transcript by speaker and time -->
+      <div
+        v-if="transcriptSegments.length"
+        class="flex flex-col gap-2 p-3 text-sm rounded-lg bg-n-alpha-1 text-n-slate-12"
+      >
+        <p
+          v-for="segment in visibleSegments"
+          :key="`${segment.speaker}-${segment.start}`"
+          class="mb-0 break-words"
+        >
+          <span class="font-mono text-xs text-n-slate-11">
+            {{ formatSegmentTime(segment.start) }}
+          </span>
+          <span class="font-medium">
+            {{ `${$t(SPEAKER_LABEL_MAP[segment.speaker])}:` }}
+          </span>
+          {{ segment.text }}
+        </p>
+        <button
+          v-if="transcriptSegments.length > COLLAPSED_SEGMENTS"
+          class="self-start p-0 border-0 bg-transparent text-n-slate-11 hover:text-n-slate-12 font-medium"
+          @click="isTranscriptExpanded = !isTranscriptExpanded"
+        >
+          {{
+            isTranscriptExpanded
+              ? $t('CONVERSATION.VOICE_CALL.TRANSCRIPT_SHOW_LESS')
+              : $t('CONVERSATION.VOICE_CALL.TRANSCRIPT_SHOW_MORE')
+          }}
+        </button>
+      </div>
 
       <!-- Call back button (missed inbound) -->
       <NextButton

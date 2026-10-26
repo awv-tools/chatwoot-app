@@ -73,6 +73,9 @@ json.profile_id resource.channel.try(:profile_id) if resource.twitter?
 ## LINE Attributes
 json.line_channel_id resource.channel.try(:line_channel_id) if resource.channel_type == 'Channel::Line'
 
+## Voip Attributes
+json.ai_enabled resource.channel.ai_enabled if resource.channel_type == 'Channel::Voip'
+
 ## Twilio Attributes
 json.messaging_service_sid resource.channel.try(:messaging_service_sid)
 json.phone_number resource.channel.try(:phone_number)

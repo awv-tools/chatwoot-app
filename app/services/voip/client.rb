@@ -1,6 +1,11 @@
 class Voip::Client
-  def create_line(phone_number:, webhook_url:)
-    HTTParty.post("#{base_url}/v1/lines", headers: json_headers, body: { phone_number: phone_number, webhook_url: webhook_url }.to_json)
+  def create_line(phone_number:, webhook_url:, sip: nil, ai_enabled: false)
+    body = { phone_number: phone_number, webhook_url: webhook_url, sip: sip, ai: ai_enabled }.compact
+    HTTParty.post("#{base_url}/v1/lines", headers: json_headers, body: body.to_json)
+  end
+
+  def update_line(line_id, ai_enabled:)
+    HTTParty.patch("#{base_url}/v1/lines/#{line_id}", headers: json_headers, body: { ai: ai_enabled }.to_json)
   end
 
   def delete_line(line_id)

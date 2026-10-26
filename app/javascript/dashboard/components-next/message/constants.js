@@ -85,6 +85,8 @@ export const NON_FILE_TYPES = [
 ];
 
 export const VOICE_CALL_STATUS = {
+  // A VoIP call the virtual assistant is attending, before or instead of an agent
+  AI: 'ai',
   IN_PROGRESS: 'in-progress',
   RINGING: 'ringing',
   COMPLETED: 'completed',

@@ -12,11 +12,13 @@ const props = defineProps({
 });
 
 const LABEL_KEYS = {
+  [VOICE_CALL_STATUS.AI]: 'CONVERSATION.VOICE_CALL.AI_ATTENDING',
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS',
   [VOICE_CALL_STATUS.COMPLETED]: 'CONVERSATION.VOICE_CALL.CALL_ENDED',
 };
 
 const ICON_MAP = {
+  [VOICE_CALL_STATUS.AI]: 'i-ph-robot',
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'i-ph-phone-call',
   [VOICE_CALL_STATUS.NO_ANSWER]: 'i-ph-phone-x',
   [VOICE_CALL_STATUS.FAILED]: 'i-ph-phone-x',
@@ -24,6 +26,7 @@ const ICON_MAP = {
 };
 
 const COLOR_MAP = {
+  [VOICE_CALL_STATUS.AI]: 'text-n-teal-9',
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'text-n-teal-9',
   [VOICE_CALL_STATUS.RINGING]: 'text-n-teal-9',
   [VOICE_CALL_STATUS.COMPLETED]: 'text-n-slate-11',
